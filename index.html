@@ -2219,8 +2219,14 @@
 
       const handleFirestoreError = (err) => {
         console.error('Firestore Fehler:', err);
-        if (statusText) statusText.innerText = 'Datenbank-Fehler: ' + (err.code || err.message);
+        const isPermError = err && (err.code === 'permission-denied' || (err.message && err.message.includes('permissions')));
+        if (statusText) {
+          statusText.innerText = isPermError
+            ? 'Firebase-Regeln prüfen (Missing permissions)'
+            : 'Datenbank-Fehler: ' + (err.code || err.message);
+        }
         if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+        initPinGate(window.appState.currentPin || '1914');
       };
 
       // 1. Verkündiger Listener
