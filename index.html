@@ -135,7 +135,7 @@
             <span>Sonderbestellung</span>
           </button>
           
-          <button onclick="openSpracheModal()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-sm font-medium transition flex items-center gap-1.5">
+          <button onclick="openSpracheModal()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-sm font-medium transition flex items-center gap-1.5">
             <i data-lucide="languages" class="w-4 h-4 text-slate-400"></i>
             <span>Sprachen</span>
           </button>
@@ -227,7 +227,7 @@
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <button type="button" onclick="event.stopPropagation(); openVerkuendigerModal()" class="text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-blue-50 transition">
-                <i data-lucide="plus-circle" class="w-4 h-4"></i> <span class="hidden sm:inline">Neu hinzufügen</span>
+                <i data-lucide="plus-circle" class="w-4 h-4"></i> <span class="hidden sm:inline">Neu</span>
               </button>
               <span class="p-1 text-slate-400">
                 <i data-lucide="chevron-down" id="periodika-chevron" class="w-5 h-5 transition-transform duration-200"></i>
@@ -488,12 +488,12 @@
           <div>
             <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Predigtdienstgruppe *</label>
             <select id="verkuendiger-gruppe" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-              <option value="1">Gruppe 1</option>
-              <option value="2">Gruppe 2</option>
-              <option value="3">Gruppe 3</option>
-              <option value="4">Gruppe 4</option>
-              <option value="5">Gruppe 5</option>
-              <option value="6">Gruppe 6</option>
+              <option value="1">Gr. 1 – Dirmingen (Wagner M.)</option>
+              <option value="2">Gr. 2 – Wustweiler (Schulz J.)</option>
+              <option value="3">Gr. 3 – Illingen (Rothfuchs A.)</option>
+              <option value="4">Gr. 4 – Eppelborn (Meyer W.)</option>
+              <option value="5">Gr. 5 – Uchtelfangen (Beilmann J.)</option>
+              <option value="6">Gr. 6 – Wemmetsweiler (Beldermann P.)</option>
             </select>
           </div>
         </div>
@@ -751,6 +751,16 @@
     // Standard fallback languages
     const DEFAULT_LANGUAGES = ['Deutsch', 'Englisch', 'Spanisch', 'Russisch', 'Arabisch', 'Ukrainisch', 'Türkisch', 'Italienisch'];
 
+    // Feste Predigtdienstgruppen mit Ort und Gruppenaufseher
+    const GRUPPEN_DETAILS = {
+      '1': { kurz: 'Gr. 1', ort: 'Dirmingen', leiter: 'Wagner M.' },
+      '2': { kurz: 'Gr. 2', ort: 'Wustweiler', leiter: 'Schulz J.' },
+      '3': { kurz: 'Gr. 3', ort: 'Illingen', leiter: 'Rothfuchs A.' },
+      '4': { kurz: 'Gr. 4', ort: 'Eppelborn', leiter: 'Meyer W.' },
+      '5': { kurz: 'Gr. 5', ort: 'Uchtelfangen', leiter: 'Beilmann J.' },
+      '6': { kurz: 'Gr. 6', ort: 'Wemmetsweiler', leiter: 'Beldermann P.' }
+    };
+
     // Default bi-monthly schedule template
     const DEFAULT_BI_MONTHLY = {
       'Jan/Feb': 'Wachtturm Nr. 1 / 2026 - Ist das Leben sinnvoll?',
@@ -880,7 +890,6 @@
           timestamp: Date.now(),
           zeitString: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
         });
-        // Mark own change as seen so user only gets notified for external changes or sees it in list
         window.appState.seenChangeIds.add(docRef.id);
       } catch (err) {
         console.error('Fehler beim Protokollieren der Änderung:', err);
@@ -1002,8 +1011,8 @@
           { id: '6', label: 'Gr. 6' }
         ];
         tabsContainer.innerHTML = groups.map(g => `
-          <button onclick="setJahresGroupFilter('${g.id}')" class="px-2 py-0.5 text-[11px] rounded transition ${selectedGroup === g.id ? 'bg-slate-800 text-white font-semibold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
-            ${g.label}
+          <button onclick="setJahresGroupFilter('${g.id}')" class="px-2 py-0.5 text-[11px] rounded whitespace-nowrap transition ${selectedGroup === g.id ? 'bg-slate-800 text-white font-semibold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+            ${escapeHtml(g.label)}
           </button>
         `).join('');
       }
@@ -1024,15 +1033,17 @@
         const j = v.jahresabfrage || {};
         const tt = j.tagestext || { aktiv: false, anzahl: 1, sprache: 'Deutsch', typ: 'Standard' };
         const nb = j.neuesBuch || { aktiv: false, anzahl: 1, sprache: 'Deutsch', titel: '' };
+        const gInfo = GRUPPEN_DETAILS[String(v.gruppe || 1)] || { kurz: `Gr. ${v.gruppe || 1}`, ort: '', leiter: '' };
+        const gruppenLabel = `${gInfo.kurz} – ${gInfo.ort} (${gInfo.leiter})`;
 
         return `
           <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 hover:border-slate-300 transition">
-            <div class="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
-              <span class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                <span class="w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold">${v.gruppe || 1}</span>
-                ${escapeHtml(v.name)}
+            <div class="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-1.5">
+              <span class="font-bold text-slate-800 text-sm flex items-center gap-1.5 min-w-0">
+                <span class="w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0">${v.gruppe || 1}</span>
+                <span class="truncate">${escapeHtml(v.name)}</span>
               </span>
-              <span class="text-[11px] text-slate-400">Gruppe ${v.gruppe || 1}</span>
+              <span class="text-[11px] text-slate-500 font-medium shrink-0">${escapeHtml(gruppenLabel)}</span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
@@ -1125,9 +1136,7 @@
       }
     };
 
-    // Calculate dynamic totals for Tagestext 2027 and Neues Buch
     function updateTotalsAndStats() {
-      // ... existing code for WT/Öffentlichkeit/Arbeitshefte ...
       let wtStudienTotal = 0;
       let oeffentlichTotal = 0;
       let arbeitsheftTotal = 0;
@@ -1136,7 +1145,6 @@
       const langOeffMap = {};
       const langAhMap = {};
 
-      // Jahresabfrage Counters
       let ttTotalCount = 0;
       let nbTotalCount = 0;
       const ttBreakdown = {};
@@ -1161,7 +1169,6 @@
           }
         });
 
-        // Calculate Jahresabfrage totals
         const j = v.jahresabfrage || {};
         if (j.tagestext && j.tagestext.aktiv) {
           const qty = parseInt(j.tagestext.anzahl || 1, 10);
@@ -1188,7 +1195,6 @@
       document.getElementById('stat-oeffentlich-breakdown').innerText = formatLangBreakdown(langOeffMap);
       document.getElementById('stat-arbeitsheft-breakdown').innerText = formatLangBreakdown(langAhMap);
 
-      // Update Jahresabfrage header summary
       const ttCountEl = document.getElementById('total-tagestext-count');
       const ttBreakdownEl = document.getElementById('total-tagestext-breakdown');
       const nbCountEl = document.getElementById('total-neuesbuch-count');
@@ -1206,7 +1212,6 @@
       if (nbCountEl) nbCountEl.innerText = nbTotalCount;
       if (nbBreakdownEl) nbBreakdownEl.innerText = formatLangBreakdown(nbBreakdown);
 
-      // Update Top Overview Card for Tagestext & Neues Buch
       const topJahresTitleEl = document.getElementById('stat-jahres-title');
       const topJahresTotalEl = document.getElementById('stat-jahres-total');
       const topJahresBreakdownEl = document.getElementById('stat-jahres-breakdown');
@@ -1222,7 +1227,6 @@
         topJahresBreakdownEl.title = `${ttTotalCount}x Tagestext · ${nbTotalCount}x ${buchKurzTitel}`;
       }
 
-      // Render updated list
       renderJahresabfrage();
     }
 
@@ -1232,7 +1236,6 @@
       return keys.map(k => `${map[k]}x ${k}`).join(', ');
     }
 
-    // Update Verkündiger suggestions list for Sonderbestellungen modal
     function updateVerkuendigerSuggestions() {
       const datalist = document.getElementById('verkuendiger-suggestions');
       if (!datalist) return;
@@ -1241,7 +1244,6 @@
         .join('');
     }
 
-    // Populate Language dropdown options in modals
     function populateSprachenDropdowns() {
       const sprachen = window.appState.sprachenList.length > 0 
         ? window.appState.sprachenList 
@@ -1252,7 +1254,6 @@
         sonderSelect.innerHTML = sprachen.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
       }
 
-      // Update rows in Verkündiger modal if open
       const rowSelects = document.querySelectorAll('.periodika-sprache-select');
       rowSelects.forEach(sel => {
         const currentVal = sel.value;
@@ -1279,6 +1280,17 @@
       lucide.createIcons();
     }
 
+    function populateGruppenDropdown() {
+      const select = document.getElementById('verkuendiger-gruppe');
+      if (!select) return;
+      const currentVal = select.value;
+      select.innerHTML = ['1', '2', '3', '4', '5', '6'].map(num => {
+        const g = GRUPPEN_DETAILS[num];
+        return `<option value="${num}">${escapeHtml(g.kurz)} – ${escapeHtml(g.ort)} (${escapeHtml(g.leiter)})</option>`;
+      }).join('');
+      if (currentVal) select.value = currentVal;
+    }
+
     // ----------------------------------------------------
     // VERKÜNDIGER ACTIONS & MODAL LOGIC
     // ----------------------------------------------------
@@ -1287,6 +1299,7 @@
       const form = document.getElementById('form-verkuendiger');
       if (!modal || !form) return;
       form.reset();
+      populateGruppenDropdown();
 
       document.getElementById('verkuendiger-id').value = '';
       document.getElementById('modal-verkuendiger-title').innerHTML = `
@@ -1311,7 +1324,6 @@
           (v.periodika || []).forEach(p => addPeriodikaRow(p));
         }
       } else {
-        // Default 2 rows for new publisher (Arbeitsheft first, then Studienausgabe)
         addPeriodikaRow({ typ: 'Arbeitsheft', sprache: 'Deutsch', anzahl: 1 });
         addPeriodikaRow({ typ: 'Studienausgabe', sprache: 'Deutsch', anzahl: 1 });
       }
@@ -1377,14 +1389,16 @@
 
     window.saveVerkuendiger = async function(e) {
       e.preventDefault();
-      if (!auth.currentUser) return;
+      if (!auth.currentUser) {
+        showToast('Keine Datenbankverbindung (bitte Firebase prüfen)', 'error');
+        return;
+      }
 
       const id = document.getElementById('verkuendiger-id').value;
       const name = document.getElementById('verkuendiger-name').value.trim();
       const gruppe = parseInt(document.getElementById('verkuendiger-gruppe').value, 10);
       const anmerkung = document.getElementById('verkuendiger-anmerkung').value.trim();
 
-      // Collect rows
       const rows = document.querySelectorAll('#periodika-rows-container > div');
       const periodika = [];
       rows.forEach(r => {
@@ -1447,7 +1461,10 @@
       const val = input.value.trim();
       if (!val) return;
 
-      if (!auth.currentUser) return;
+      if (!auth.currentUser) {
+        showToast('Keine Datenbankverbindung', 'error');
+        return;
+      }
 
       try {
         const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'sprachen');
@@ -1463,9 +1480,6 @@
     window.deleteSprache = async function(spracheName) {
       if (!auth.currentUser) return;
       try {
-        const sprachenCol = collection(db, 'artifacts', appId, 'public', 'data', 'sprachen');
-        // Snapshot matches name locally
-        const docsSnap = window.appState.sprachenList;
         showToast(`Sprache ${spracheName} entfernt`);
       } catch (e) {
         console.error(e);
@@ -1487,7 +1501,10 @@
 
     window.saveSonderbestellung = async function(e) {
       e.preventDefault();
-      if (!auth.currentUser) return;
+      if (!auth.currentUser) {
+        showToast('Keine Datenbankverbindung', 'error');
+        return;
+      }
 
       const id = document.getElementById('sonder-id').value;
       const verkuendigerName = document.getElementById('sonder-verkuendiger').value.trim();
@@ -1750,7 +1767,7 @@
         ];
         tabsContainer.innerHTML = groups.map(g => `
           <button onclick="setVerkuendigerGroupFilter('${g.id}')" class="px-2.5 py-1 text-xs rounded-lg whitespace-nowrap transition ${selectedGroup === g.id ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
-            ${g.label}
+            ${escapeHtml(g.label)}
           </button>
         `).join('');
       }
@@ -1759,20 +1776,21 @@
         const matchesGroup = selectedGroup === 'alle' || String(v.gruppe) === selectedGroup;
         if (!matchesGroup) return false;
         if (!searchTerm) return true;
+        const gInfo = GRUPPEN_DETAILS[String(v.gruppe || 1)] || {};
         const inName = (v.name || '').toLowerCase().includes(searchTerm);
         const inNote = (v.anmerkung || '').toLowerCase().includes(searchTerm);
+        const inGroup = (gInfo.ort || '').toLowerCase().includes(searchTerm) || (gInfo.leiter || '').toLowerCase().includes(searchTerm);
         const inLang = (v.periodika || []).some(p => (p.sprache || '').toLowerCase().includes(searchTerm) || (p.typ || '').toLowerCase().includes(searchTerm));
-        return inName || inNote || inLang;
+        return inName || inNote || inGroup || inLang;
       });
 
       if (countBadge) countBadge.innerText = filtered.length;
 
       if (filtered.length === 0) {
-        listContainer.innerHTML = `<div class="text-center py-10 text-slate-400 text-sm">Keine Verkündiger gefunden. Über „+ Neu hinzufügen“ anlegen.</div>`;
+        listContainer.innerHTML = `<div class="text-center py-10 text-slate-400 text-sm">Keine Verkündiger gefunden. Über „+ Neu“ anlegen.</div>`;
         return;
       }
 
-      // Group by Predigtdienstgruppe (1-6)
       const grouped = {};
       for (let i = 1; i <= 6; i++) grouped[i] = [];
       filtered.forEach(v => {
@@ -1783,10 +1801,17 @@
       let html = '';
       for (let g = 1; g <= 6; g++) {
         if (grouped[g].length === 0) continue;
+        const gInfo = GRUPPEN_DETAILS[String(g)];
         html += `
           <div class="space-y-2.5">
-            <div class="flex items-center gap-2 pb-1 border-b border-slate-100">
-              <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-bold rounded-md">Predigtdienstgruppe ${g}</span>
+            <div class="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-bold rounded-md">${escapeHtml(gInfo.kurz)} – ${escapeHtml(gInfo.ort)}</span>
+                <span class="text-xs font-medium text-slate-600 flex items-center gap-1">
+                  <i data-lucide="user-check" class="w-3.5 h-3.5 text-slate-400"></i>
+                  Gruppenleiter: <strong class="text-slate-800">${escapeHtml(gInfo.leiter)}</strong>
+                </span>
+              </div>
               <span class="text-xs text-slate-400">(${grouped[g].length} Verkündiger)</span>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1945,8 +1970,8 @@
           }
         } catch (err) {
           console.error('Auth Fehler:', err);
-          if (statusText) statusText.innerText = 'Offline-Modus (Demo)';
-          if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+          if (statusText) statusText.innerText = 'Verbindungsfehler: ' + (err.code || err.message);
+          if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-rose-500';
           initPinGate('1914');
           renderAll();
         }
@@ -1960,6 +1985,7 @@
       renderSonderbestellungen();
       renderLieferplan();
       populateSprachenDropdowns();
+      populateGruppenDropdown();
       updateVerkuendigerSuggestions();
     }
 
@@ -2001,11 +2027,20 @@
         }
       } catch (err) {
         console.error('Fehler beim Anlegen der Beispieldaten:', err);
+        showToast('Datenbank-Regeln prüfen: ' + (err.code || err.message), 'error');
       }
     }
 
     function setupFirestoreListeners() {
       let initialSeedChecked = false;
+      const statusText = document.getElementById('sync-status-text');
+      const statusDot = document.getElementById('sync-status-dot');
+
+      const handleFirestoreError = (err) => {
+        console.error('Firestore Fehler:', err);
+        if (statusText) statusText.innerText = 'Datenbank-Fehler: ' + (err.code || err.message);
+        if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+      };
 
       // 1. Verkündiger Listener
       const verkCol = collection(db, 'artifacts', appId, 'public', 'data', 'verkuendiger');
@@ -2020,7 +2055,7 @@
         updateTotalsAndStats();
         renderVerkuendiger();
         updateVerkuendigerSuggestions();
-      }, (err) => console.error('Verkündiger Snapshot Fehler:', err));
+      }, handleFirestoreError);
 
       // 2. Sprachen Listener
       const sprCol = collection(db, 'artifacts', appId, 'public', 'data', 'sprachen');
@@ -2030,7 +2065,7 @@
         populateSprachenDropdowns();
         renderSprachenTags();
         renderJahresabfrage();
-      }, (err) => console.error('Sprachen Snapshot Fehler:', err));
+      }, handleFirestoreError);
 
       // 3. Sonderbestellungen Listener
       const sonderCol = collection(db, 'artifacts', appId, 'public', 'data', 'sonderbestellungen');
@@ -2038,7 +2073,7 @@
         window.appState.sonderbestellungenList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         renderSonderbestellungen();
         updateTotalsAndStats();
-      }, (err) => console.error('Sonderbestellungen Snapshot Fehler:', err));
+      }, handleFirestoreError);
 
       // 4. Lieferplan Listener
       const lieferDoc = doc(db, 'artifacts', appId, 'public', 'data', 'einstellungen', 'lieferplan');
@@ -2048,7 +2083,7 @@
         }
         renderLieferplan();
         updateTotalsAndStats();
-      }, (err) => console.error('Lieferplan Snapshot Fehler:', err));
+      }, handleFirestoreError);
 
       // 5. Notizen Listener
       const notizDoc = doc(db, 'artifacts', appId, 'public', 'data', 'notizen', 'hauptnotiz');
@@ -2064,7 +2099,7 @@
             updatedEl.innerText = `Zuletzt aktualisiert: ${data.updatedAt}`;
           }
         }
-      }, (err) => console.error('Notizen Snapshot Fehler:', err));
+      }, handleFirestoreError);
 
       // 6. Änderungsprotokoll / Benachrichtigungs-Glocke Listener
       const aenderungenCol = collection(db, 'artifacts', appId, 'public', 'data', 'aenderungen');
@@ -2076,7 +2111,7 @@
         }
         window.appState.aenderungenList = items;
         renderNotifications();
-      }, (err) => console.error('Änderungen Snapshot Fehler:', err));
+      }, handleFirestoreError);
 
       // 7. Sicherheits-PIN Listener
       const secDoc = doc(db, 'artifacts', appId, 'public', 'data', 'einstellungen', 'sicherheit');
@@ -2084,7 +2119,7 @@
         const savedPin = (snap.exists() && snap.data().pin) ? String(snap.data().pin) : '1914';
         initPinGate(savedPin);
       }, (err) => {
-        console.error('PIN Snapshot Fehler:', err);
+        handleFirestoreError(err);
         initPinGate('1914');
       });
     }
