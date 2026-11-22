@@ -261,17 +261,22 @@
         <!-- 2. KARTE: LIEFERUNG & 2-MONATS-AUSLAGE-PLANER -->
         <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           
-          <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <i data-lucide="truck" class="w-5 h-5 text-emerald-600"></i>
-              <h2 class="font-bold text-slate-800 text-lg">Lieferung & Auslage</h2>
+          <div onclick="toggleCardSection('lieferung-card-body', 'lieferung-chevron')" class="p-4 sm:px-5 sm:py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-100/70 transition select-none">
+            <div class="flex items-center gap-2 min-w-0">
+              <i data-lucide="truck" class="w-5 h-5 text-emerald-600 shrink-0"></i>
+              <h2 class="font-bold text-slate-800 text-base sm:text-lg truncate">Lieferung & Auslage</h2>
             </div>
-            <button onclick="toggleLieferplanEdit()" class="text-xs text-slate-500 hover:text-slate-800 font-medium flex items-center gap-1">
-              <i data-lucide="edit-2" class="w-3.5 h-3.5"></i> Bearbeiten
-            </button>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" onclick="event.stopPropagation(); toggleLieferplanEdit(true)" class="text-xs text-slate-600 hover:text-slate-900 font-medium flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-200/70 transition">
+                <i data-lucide="edit-2" class="w-3.5 h-3.5"></i> Bearbeiten
+              </button>
+              <span class="p-1 text-slate-400">
+                <i data-lucide="chevron-down" id="lieferung-chevron" class="w-5 h-5 transition-transform duration-200"></i>
+              </span>
+            </div>
           </div>
 
-          <div class="p-4 sm:p-5 space-y-5">
+          <div id="lieferung-card-body" class="p-4 sm:p-5 space-y-5">
             
             <!-- Nächste Lieferung Box -->
             <div class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
@@ -385,31 +390,40 @@
         <!-- 4. KARTE: SONDERBESTELLUNGEN (ECHTE SONDERBESTELLUNGEN) -->
         <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           
-          <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-              <i data-lucide="shopping-bag" class="w-5 h-5 text-purple-600"></i>
-              <div>
-                <h2 class="font-bold text-slate-800 text-lg">Sonderbestellungen</h2>
-                <p class="text-xs text-slate-400">Nur für Einsichten-Bücher, Studienbibeln, Großdruck-Liederbücher etc.</p>
+          <div onclick="toggleCardSection('sonderbestellungen-card-body', 'sonderbestellungen-chevron')" class="p-4 sm:px-5 sm:py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-100/70 transition select-none">
+            <div class="flex items-center gap-2 min-w-0">
+              <i data-lucide="shopping-bag" class="w-5 h-5 text-purple-600 shrink-0"></i>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h2 class="font-bold text-slate-800 text-base sm:text-lg truncate">Sonderbestellungen</h2>
+                  <span id="sonder-count-badge" class="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full shrink-0">0</span>
+                </div>
+                <p class="text-[11px] text-slate-400 truncate hidden sm:block">Nur für Einsichten-Bücher, Studienbibeln, Großdruck-Liederbücher etc.</p>
               </div>
-              <span id="sonder-count-badge" class="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">0</span>
             </div>
             
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" onclick="event.stopPropagation(); openSonderbestellungModal()" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-medium transition flex items-center gap-1">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> <span class="hidden sm:inline">Bestellen</span>
+              </button>
+              <span class="p-1 text-slate-400">
+                <i data-lucide="chevron-down" id="sonderbestellungen-chevron" class="w-5 h-5 transition-transform duration-200"></i>
+              </span>
+            </div>
+          </div>
+
+          <div id="sonderbestellungen-card-body" class="p-4 sm:p-5 space-y-3">
+            <div class="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <span class="text-xs font-semibold text-slate-500">Status filtern:</span>
               <select id="filter-sonder-status" onchange="renderSonderbestellungen()" class="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:ring-2 focus:ring-purple-500 focus:outline-none">
                 <option value="alle">Alle Status</option>
                 <option value="Offen">Offen / Bestellt</option>
                 <option value="Angekommen">Angekommen</option>
                 <option value="Ausgehändigt">Ausgehändigt</option>
               </select>
-              <button onclick="openSonderbestellungModal()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-medium transition flex items-center gap-1">
-                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Bestellen
-              </button>
             </div>
-          </div>
 
-          <div class="p-4 sm:p-5">
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
               <table class="w-full text-left text-sm text-slate-600">
                 <thead class="text-xs uppercase bg-slate-50 text-slate-500 border-b border-slate-200">
                   <tr>
@@ -432,18 +446,18 @@
 
       </div>
 
-      <!-- RIGHT COLUMN (1 COL): NOTIZEN FÜR LITERATURDIENER -->
+      <!-- RIGHT COLUMN (1 COL): NOTIZEN FÜR LITERATURDIENER (BLEIBT IMMER OFFEN) -->
       <div class="space-y-6">
 
         <!-- KARTE: GEMEINSAME NOTIZEN FÜR LITERATURDIENER -->
         <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden sticky top-24">
           
-          <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <i data-lucide="sticky-note" class="w-5 h-5 text-amber-500"></i>
-              <h2 class="font-bold text-slate-800 text-lg">Notizen für Literaturdiener</h2>
+          <div class="p-4 sm:px-5 sm:py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <i data-lucide="sticky-note" class="w-5 h-5 text-amber-500 shrink-0"></i>
+              <h2 class="font-bold text-slate-800 text-base sm:text-lg truncate">Notizen für Literaturdiener</h2>
             </div>
-            <span class="text-xs text-slate-400 font-medium" id="notiz-status">Synchronisiert</span>
+            <span class="text-[11px] text-slate-400 font-medium shrink-0" id="notiz-status">Synchronisiert</span>
           </div>
 
           <div class="p-4 sm:p-5 space-y-3">
@@ -1726,7 +1740,15 @@
     // ----------------------------------------------------
     // LIEFERPLAN & AUSLAGE ACTIONS
     // ----------------------------------------------------
-    window.toggleLieferplanEdit = function() {
+    window.toggleLieferplanEdit = function(ensureOpen = false) {
+      if (ensureOpen) {
+        const bodyEl = document.getElementById('lieferung-card-body');
+        const chevronEl = document.getElementById('lieferung-chevron');
+        if (bodyEl && bodyEl.classList.contains('hidden')) {
+          bodyEl.classList.remove('hidden');
+          if (chevronEl) chevronEl.style.transform = 'rotate(0deg)';
+        }
+      }
       const readView = document.getElementById('lieferung-read-view');
       const editView = document.getElementById('lieferung-edit-view');
       if (readView && editView) {
@@ -2321,4 +2343,3 @@
   </script>
 </body>
 </html>
-```
