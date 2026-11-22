@@ -1016,10 +1016,11 @@
           </button>
         `).join('');
       }
-
-      const filtered = window.appState.verkuendigerList.filter(v => {
-        return selectedGroup === 'alle' || String(v.gruppe) === selectedGroup;
-      });
+      const filtered = window.appState.verkuendigerList
+        .filter(v => {
+          return selectedGroup === 'alle' || String(v.gruppe) === selectedGroup;
+        })
+        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de', { sensitivity: 'base' }));
 
       if (filtered.length === 0) {
         container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs">Keine Verkündiger für die ausgewählte Gruppe vorhanden.</div>`;
@@ -1324,6 +1325,10 @@
           (v.periodika || []).forEach(p => addPeriodikaRow(p));
         }
       } else {
+        const activeGrp = window.appState.activeGroupFilter;
+        if (activeGrp && activeGrp !== 'alle' && ['1', '2', '3', '4', '5', '6'].includes(String(activeGrp))) {
+          document.getElementById('verkuendiger-gruppe').value = String(activeGrp);
+        }
         addPeriodikaRow({ typ: 'Arbeitsheft', sprache: 'Deutsch', anzahl: 1 });
         addPeriodikaRow({ typ: 'Studienausgabe', sprache: 'Deutsch', anzahl: 1 });
       }
@@ -1797,6 +1802,9 @@
         const g = v.gruppe >= 1 && v.gruppe <= 6 ? v.gruppe : 1;
         grouped[g].push(v);
       });
+      for (let i = 1; i <= 6; i++) {
+        grouped[i].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de', { sensitivity: 'base' }));
+      }
 
       let html = '';
       for (let g = 1; g <= 6; g++) {
