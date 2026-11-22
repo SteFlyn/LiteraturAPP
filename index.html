@@ -1,0 +1,2102 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Literaturverwaltung Versammlung</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f4f8',
+              100: '#d9e2ec',
+              500: '#334e68',
+              600: '#243b53',
+              700: '#102a43',
+              800: '#0b1b2b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      color: #1e293b;
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- PIN ACCESS OVERLAY -->
+  <div id="pin-lock-overlay" class="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5 text-center border border-slate-200">
+      <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+        <i data-lucide="lock" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h2 class="text-lg font-bold text-slate-800">Literatur-Dashboard</h2>
+        <p class="text-xs text-slate-500 mt-1" id="pin-subtitle">Bitte Versammlungs-PIN eingeben</p>
+      </div>
+      <form onsubmit="verifyPin(event)" class="space-y-3">
+        <input type="password" id="pin-input" inputmode="numeric" maxlength="8" required placeholder="••••" class="w-full text-center text-2xl tracking-[0.4em] font-bold py-2.5 px-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        <p id="pin-error-msg" class="hidden text-xs text-rose-600 font-medium">Falsche PIN. Bitte erneut versuchen.</p>
+        <button type="submit" id="pin-submit-btn" disabled class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-400 text-white rounded-xl text-sm font-semibold shadow-sm transition">
+          Verbinde...
+        </button>
+      </form>
+      <p class="text-[11px] text-slate-400" id="pin-hint">Standard-PIN beim ersten Start: <strong>1914</strong></p>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- TOP HEADER -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-3">
+          <div class="p-2.5 bg-blue-600 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center">
+            <i data-lucide="book-open" class="w-6 h-6 text-white"></i>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+              Literatur-Dashboard
+              <span class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">Versammlung</span>
+            </h1>
+            <p class="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+              <span id="sync-status-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="sync-status-text">Verbindung wird aufgebaut...</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Notification Bell -->
+          <div class="relative">
+            <button id="notification-bell-btn" onclick="toggleNotificationPopover(event)" title="Änderungsprotokoll anzeigen" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition relative flex items-center justify-center">
+              <i data-lucide="bell" id="notification-bell-icon" class="w-4 h-4 text-slate-300"></i>
+              <span id="notification-badge" class="hidden absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm ring-2 ring-slate-900">0</span>
+            </button>
+
+            <!-- Dropdown Popover for Activity Log -->
+            <div id="notification-popover" class="hidden fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-16 sm:top-full sm:mt-2 sm:w-96 bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden">
+              <div class="p-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="history" class="w-4 h-4 text-blue-600"></i>
+                  <h3 class="font-bold text-sm text-slate-800">Letzte Änderungen</h3>
+                </div>
+                <button onclick="markAllNotificationsRead()" class="text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                  Alle gelesen
+                </button>
+              </div>
+              <div id="notification-list" class="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                <div class="p-6 text-center text-xs text-slate-400">Noch keine Änderungen protokolliert.</div>
+              </div>
+            </div>
+          </div>
+
+          <button onclick="openVerkuendigerModal()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-1.5">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            <span>Verkündiger</span>
+          </button>
+          
+          <button onclick="openSonderbestellungModal()" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-1.5">
+            <i data-lucide="package-plus" class="w-4 h-4"></i>
+            <span>Sonderbestellung</span>
+          </button>
+          
+          <button onclick="openSpracheModal()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-sm font-medium transition flex items-center gap-1.5">
+            <i data-lucide="languages" class="w-4 h-4 text-slate-400"></i>
+            <span>Sprachen</span>
+          </button>
+
+          <button onclick="openPinChangeModal()" title="Versammlungs-PIN ändern" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition flex items-center justify-center">
+            <i data-lucide="key-round" class="w-4 h-4 text-slate-400"></i>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-5 flex-1 w-full">
+
+    <!-- OVERVIEW TOTALS & STATS (COMPACT) -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      
+      <div class="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-lg font-bold text-slate-800 leading-none" id="stat-wt-studien">0</span>
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate">Studienausgabe</span>
+          </div>
+          <div class="text-[11px] text-slate-500 mt-1 truncate" id="stat-wt-studien-breakdown">Lade Daten...</div>
+        </div>
+        <div class="p-1.5 bg-blue-50 text-blue-600 rounded-lg shrink-0">
+          <i data-lucide="book" class="w-4 h-4"></i>
+        </div>
+      </div>
+
+      <div class="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-lg font-bold text-slate-800 leading-none" id="stat-oeffentlich">0</span>
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate">Öffentlichkeit</span>
+          </div>
+          <div class="text-[11px] text-slate-500 mt-1 truncate" id="stat-oeffentlich-breakdown">Lade Daten...</div>
+        </div>
+        <div class="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg shrink-0">
+          <i data-lucide="newspaper" class="w-4 h-4"></i>
+        </div>
+      </div>
+
+      <div class="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-lg font-bold text-slate-800 leading-none" id="stat-arbeitsheft">0</span>
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate">Arbeitshefte</span>
+          </div>
+          <div class="text-[11px] text-slate-500 mt-1 truncate" id="stat-arbeitsheft-breakdown">Lade Daten...</div>
+        </div>
+        <div class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg shrink-0">
+          <i data-lucide="file-text" class="w-4 h-4"></i>
+        </div>
+      </div>
+
+      <div class="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-lg font-bold text-amber-600 leading-none" id="stat-jahres-total">0</span>
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate" id="stat-jahres-title">Tagestext & Neues Buch</span>
+          </div>
+          <div class="text-[11px] text-slate-500 mt-1 truncate" id="stat-jahres-breakdown">0 Tagestext / 0 Neues Buch</div>
+        </div>
+        <div class="p-1.5 bg-amber-50 text-amber-600 rounded-lg shrink-0">
+          <i data-lucide="bookmark-check" class="w-4 h-4"></i>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- DASHBOARD CONTENT GRID -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- LEFT COLUMN (2 COLS): PERIODIKA -> LIEFERUNG -> JAHRESABFRAGE -> SONDERBESTELLUNGEN -->
+      <div class="lg:col-span-2 space-y-6">
+
+        <!-- 1. KARTE: VERKÜNDIGER & PERIODIKA (COLLAPSIBLE) -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          
+          <!-- Card Header -->
+          <div onclick="toggleCardSection('periodika-card-body', 'periodika-chevron')" class="p-4 sm:px-5 sm:py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-100/70 transition select-none">
+            <div class="flex items-center gap-2 min-w-0">
+              <i data-lucide="users" class="w-5 h-5 text-blue-600 shrink-0"></i>
+              <h2 class="font-bold text-slate-800 text-base sm:text-lg truncate">Verkündiger & Periodika-Bestellungen</h2>
+              <span id="verkuendiger-count-badge" class="px-2 py-0.5 text-xs font-medium bg-slate-200 text-slate-700 rounded-full shrink-0">0</span>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" onclick="event.stopPropagation(); openVerkuendigerModal()" class="text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-blue-50 transition">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i> <span class="hidden sm:inline">Neu hinzufügen</span>
+              </button>
+              <span class="p-1 text-slate-400">
+                <i data-lucide="chevron-down" id="periodika-chevron" class="w-5 h-5 transition-transform duration-200"></i>
+              </span>
+            </div>
+          </div>
+
+          <!-- Collapsible Body -->
+          <div id="periodika-card-body">
+            <!-- Group Filter Tabs & Search -->
+            <div class="px-4 sm:px-5 pt-3 pb-2 border-b border-slate-100 bg-slate-50/30 flex flex-col sm:flex-row gap-2">
+              <div class="relative flex-1">
+                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2 text-slate-400"></i>
+                <input type="text" id="search-verkuendiger" oninput="renderVerkuendiger()" placeholder="Verkündiger oder Sprache suchen..." class="w-full pl-9 pr-3 py-1 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+              <div class="flex overflow-x-auto pb-1 sm:pb-0 gap-1" id="group-tabs-container">
+                <!-- Tabs will be rendered here dynamically -->
+              </div>
+            </div>
+
+            <!-- Grouped Publishers List -->
+            <div class="p-4 sm:p-5 space-y-6 max-h-[600px] overflow-y-auto" id="verkuendiger-list">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+
+        </section>
+
+        <!-- 2. KARTE: LIEFERUNG & 2-MONATS-AUSLAGE-PLANER -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          
+          <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="truck" class="w-5 h-5 text-emerald-600"></i>
+              <h2 class="font-bold text-slate-800 text-lg">Lieferung & Auslage</h2>
+            </div>
+            <button onclick="toggleLieferplanEdit()" class="text-xs text-slate-500 hover:text-slate-800 font-medium flex items-center gap-1">
+              <i data-lucide="edit-2" class="w-3.5 h-3.5"></i> Bearbeiten
+            </button>
+          </div>
+
+          <div class="p-4 sm:p-5 space-y-5">
+            
+            <!-- Nächste Lieferung Box -->
+            <div class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                  <i data-lucide="calendar-clock" class="w-4 h-4 text-emerald-600"></i> Nächste Lieferung
+                </span>
+              </div>
+
+              <!-- Read mode -->
+              <div id="lieferung-read-view" class="space-y-1">
+                <div class="text-lg font-extrabold text-emerald-950" id="display-naechste-lieferung">Noch kein Datum eingegeben</div>
+                <div class="text-xs text-emerald-700 font-medium" id="display-lieferung-status">Kein Status</div>
+              </div>
+
+              <!-- Edit mode -->
+              <div id="lieferung-edit-view" class="hidden space-y-2 pt-2 border-t border-emerald-200">
+                <div>
+                  <label class="block text-xs font-semibold text-emerald-900 mb-1">Lieferdatum</label>
+                  <input type="date" id="input-naechste-lieferung" class="w-full text-xs p-2 bg-white border border-emerald-300 rounded focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-emerald-900 mb-1">Hinweis / Sendungsstatus</label>
+                  <input type="text" id="input-lieferung-status" placeholder="z. B. Paket unterwegs / DHL Tracking" class="w-full text-xs p-2 bg-white border border-emerald-300 rounded focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <button onclick="saveLieferplan()" class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold shadow-sm transition">
+                  Lieferdatum speichern
+                </button>
+              </div>
+            </div>
+
+            <!-- 2-Monats-Rhythmus Auslage-Planer -->
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <i data-lucide="calendar-range" class="w-4 h-4 text-blue-600"></i> Auslage-Planer (2-Monats-Zyklus)
+                </h3>
+                <span class="text-[11px] text-slate-400 font-medium">Öffentlichkeitsausgaben</span>
+              </div>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="bi-monthly-schedule-list">
+                <!-- Bi-Monthly Cards rendered via JS -->
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- 3. KARTE: JAHRES- & NEUERSCHEINUNGS-ABFRAGE (COLLAPSIBLE) -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          
+          <!-- Card Header & Live Totals -->
+          <div onclick="toggleCardSection('jahresabfrage-card-body', 'jahresabfrage-chevron')" class="p-4 sm:px-5 sm:py-3.5 border-b border-slate-100 bg-gradient-to-r from-blue-900 to-slate-900 text-white space-y-2.5 cursor-pointer select-none">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <i data-lucide="bookmark-check" class="w-5 h-5 text-amber-400 shrink-0"></i>
+                <h2 class="font-bold text-base sm:text-lg text-white truncate">Jahres- & Neuerscheinungs-Abfrage</h2>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="hidden sm:inline text-xs px-2.5 py-0.5 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-full font-semibold">
+                  Jahresbestellung & Kongress
+                </span>
+                <span class="p-1 text-slate-300 hover:text-white">
+                  <i data-lucide="chevron-down" id="jahresabfrage-chevron" class="w-5 h-5 transition-transform duration-200"></i>
+                </span>
+              </div>
+            </div>
+
+            <!-- Live Order Summary Banner -->
+            <div onclick="event.stopPropagation()" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs cursor-default">
+              <div class="bg-white/10 rounded-lg px-2.5 py-2 backdrop-blur-sm border border-white/10">
+                <div class="font-bold text-amber-300 uppercase tracking-wider mb-0.5 flex items-center gap-1.5">
+                  <i data-lucide="sun" class="w-3.5 h-3.5"></i> Tagestext 2027 (Gesamt: <span id="total-tagestext-count">0</span>)
+                </div>
+                <div id="total-tagestext-breakdown" class="text-slate-300 font-medium">Keine Bestellungen</div>
+              </div>
+
+              <div class="bg-white/10 rounded-lg px-2.5 py-2 backdrop-blur-sm border border-white/10">
+                <div class="font-bold text-blue-300 uppercase tracking-wider mb-0.5 flex items-center justify-between gap-1.5">
+                  <span class="flex items-center gap-1.5 truncate">
+                    <i data-lucide="book-marked" class="w-3.5 h-3.5 shrink-0"></i>
+                    <span id="neuesbuch-header-label" class="truncate">Neues Buch / Neuerscheinung</span>
+                    <span class="shrink-0">(Gesamt: <span id="total-neuesbuch-count">0</span>)</span>
+                  </span>
+                  <button type="button" onclick="openNeuesBuchModal()" title="Titel der Neuerscheinung festlegen" class="px-2 py-0.5 bg-blue-500/30 hover:bg-blue-500/50 text-blue-100 rounded text-[10px] font-semibold flex items-center gap-1 shrink-0 transition">
+                    <i data-lucide="edit-2" class="w-3 h-3"></i> Titel ändern
+                  </button>
+                </div>
+                <div id="total-neuesbuch-breakdown" class="text-slate-300 font-medium">Keine Bestellungen</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Collapsible Publisher Survey Rows -->
+          <div id="jahresabfrage-card-body" class="p-4 sm:p-5 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Abfrage nach Verkündigern</span>
+              <div class="flex gap-1" id="jahresabfrage-group-tabs">
+                <!-- Dynamic group tabs rendered by JS -->
+              </div>
+            </div>
+
+            <div id="jahresabfrage-list" class="space-y-3 max-h-[600px] overflow-y-auto">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+        </section>
+
+        <!-- 4. KARTE: SONDERBESTELLUNGEN (ECHTE SONDERBESTELLUNGEN) -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          
+          <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="shopping-bag" class="w-5 h-5 text-purple-600"></i>
+              <div>
+                <h2 class="font-bold text-slate-800 text-lg">Sonderbestellungen</h2>
+                <p class="text-xs text-slate-400">Nur für Einsichten-Bücher, Studienbibeln, Großdruck-Liederbücher etc.</p>
+              </div>
+              <span id="sonder-count-badge" class="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">0</span>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <select id="filter-sonder-status" onchange="renderSonderbestellungen()" class="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                <option value="alle">Alle Status</option>
+                <option value="Offen">Offen / Bestellt</option>
+                <option value="Angekommen">Angekommen</option>
+                <option value="Ausgehändigt">Ausgehändigt</option>
+              </select>
+              <button onclick="openSonderbestellungModal()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-medium transition flex items-center gap-1">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Bestellen
+              </button>
+            </div>
+          </div>
+
+          <div class="p-4 sm:p-5">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm text-slate-600">
+                <thead class="text-xs uppercase bg-slate-50 text-slate-500 border-b border-slate-200">
+                  <tr>
+                    <th class="px-3 py-2.5 font-semibold">Verkündiger</th>
+                    <th class="px-3 py-2.5 font-semibold">Artikel / Titel</th>
+                    <th class="px-3 py-2.5 font-semibold">Sprache</th>
+                    <th class="px-3 py-2.5 font-semibold text-center">Anzahl</th>
+                    <th class="px-3 py-2.5 font-semibold">Status</th>
+                    <th class="px-3 py-2.5 font-semibold text-right">Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody id="sonderbestellung-table-body" class="divide-y divide-slate-100">
+                  <!-- Rendered via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+      </div>
+
+      <!-- RIGHT COLUMN (1 COL): NOTIZEN FÜR LITERATURDIENER -->
+      <div class="space-y-6">
+
+        <!-- KARTE: GEMEINSAME NOTIZEN FÜR LITERATURDIENER -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden sticky top-24">
+          
+          <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="sticky-note" class="w-5 h-5 text-amber-500"></i>
+              <h2 class="font-bold text-slate-800 text-lg">Notizen für Literaturdiener</h2>
+            </div>
+            <span class="text-xs text-slate-400 font-medium" id="notiz-status">Synchronisiert</span>
+          </div>
+
+          <div class="p-4 sm:p-5 space-y-3">
+            <textarea id="notiz-text" rows="10" oninput="handleNotizInput()" placeholder="Hier können Notizen für andere Literaturdiener hinterlassen werden (z. B. Inventur-Stand, fehlende Ausgaben, Absprachen)..." class="w-full p-3 text-sm bg-amber-50/40 border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none text-slate-800 placeholder-slate-400 font-normal leading-relaxed resize-y"></textarea>
+
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span id="notiz-last-updated">Zuletzt aktualisiert: -</span>
+              <button onclick="saveNotizen()" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded font-medium text-xs shadow-sm transition flex items-center gap-1">
+                <i data-lucide="save" class="w-3.5 h-3.5"></i> Speichern
+              </button>
+            </div>
+          </div>
+
+        </section>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- MODAL: VERKÜNDIGER HINZUFÜGEN / BEARBEITEN -->
+  <div id="modal-verkuendiger" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden">
+      
+      <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2" id="modal-verkuendiger-title">
+          <i data-lucide="user-plus" class="w-5 h-5 text-blue-600"></i> Verkündiger hinzufügen
+        </h3>
+        <button onclick="closeModal('modal-verkuendiger')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-verkuendiger" onsubmit="saveVerkuendiger(event)" class="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+        <input type="hidden" id="verkuendiger-id">
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Name des Verkündigers *</label>
+            <input type="text" id="verkuendiger-name" required placeholder="z. B. Max Mustermann" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Predigtdienstgruppe *</label>
+            <select id="verkuendiger-gruppe" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="1">Gruppe 1</option>
+              <option value="2">Gruppe 2</option>
+              <option value="3">Gruppe 3</option>
+              <option value="4">Gruppe 4</option>
+              <option value="5">Gruppe 5</option>
+              <option value="6">Gruppe 6</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Periodika Orders List Header -->
+        <div class="pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Periodika-Bestellungen</label>
+            <button type="button" onclick="addPeriodikaRow()" class="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Zeile hinzufügen
+            </button>
+          </div>
+
+          <div id="periodika-rows-container" class="space-y-2">
+            <!-- Dynamic rows inserted via JS -->
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Anmerkung (Optional)</label>
+          <input type="text" id="verkuendiger-anmerkung" placeholder="z. B. Pioniere, besondere Absprachen" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-verkuendiger')" class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium transition">
+            Abbrechen
+          </button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium shadow-sm transition">
+            Speichern
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- MODAL: SPRACHE HINZUFÜGEN -->
+  <div id="modal-sprache" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+      
+      <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+          <i data-lucide="languages" class="w-5 h-5 text-blue-600"></i> Sprachen verwalten
+        </h3>
+        <button onclick="closeModal('modal-sprache')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-4 sm:p-5 space-y-4">
+        
+        <!-- Add new language form -->
+        <form onsubmit="saveNeueSprache(event)" class="flex gap-2">
+          <input type="text" id="neue-sprache-name" required placeholder="Neue Sprache (z. B. Polnisch)" class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+          <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium shadow-sm transition flex items-center gap-1">
+            <i data-lucide="plus" class="w-4 h-4"></i> Hinzufügen
+          </button>
+        </form>
+
+        <div class="border-t border-slate-100 pt-3">
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Vorhandene Sprachen</label>
+          <div class="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1" id="sprachen-list-tags">
+            <!-- Language tags inserted via JS -->
+          </div>
+        </div>
+
+      </div>
+
+      <div class="p-4 bg-slate-50 border-t border-slate-100 text-right">
+        <button type="button" onclick="closeModal('modal-sprache')" class="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition">
+          Fertig
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: SONDERBESTELLUNG HINZUFÜGEN / BEARBEITEN -->
+  <div id="modal-sonderbestellung" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+      
+      <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2" id="modal-sonder-title">
+          <i data-lucide="package-plus" class="w-5 h-5 text-purple-600"></i> Sonderbestellung anlegen
+        </h3>
+        <button onclick="closeModal('modal-sonderbestellung')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-sonderbestellung" onsubmit="saveSonderbestellung(event)" class="p-4 sm:p-5 space-y-4">
+        <input type="hidden" id="sonder-id">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Verkündiger Name *</label>
+          <input type="text" id="sonder-verkuendiger" list="verkuendiger-suggestions" required placeholder="Name eingeben oder aus der Liste wählen" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none">
+          <datalist id="verkuendiger-suggestions"></datalist>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Artikel / Werk *</label>
+            <input type="text" id="sonder-artikel" required placeholder="z. B. Einsichten-Buch Band 1, Studienbibel" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none">
+          </div>
+          
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Sprache *</label>
+            <select id="sonder-sprache" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Anzahl *</label>
+            <input type="number" id="sonder-anzahl" min="1" value="1" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Status</label>
+            <select id="sonder-status" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500">
+              <option value="Offen">Offen / Bestellt</option>
+              <option value="Angekommen">Angekommen</option>
+              <option value="Ausgehändigt">Ausgehändigt</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Notiz / Ausführung (z.B. Großdruck)</label>
+          <input type="text" id="sonder-notiz" placeholder="Optional" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500">
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-sonderbestellung')" class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium transition">
+            Abbrechen
+          </button>
+          <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium shadow-sm transition">
+            Bestellung speichern
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- MODAL: AUSLAGE-PLANER EINZELMONAT BEARBEITEN -->
+  <div id="modal-auslage-edit" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+      <div class="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+          <i data-lucide="edit" class="w-4 h-4 text-blue-600"></i> Ausgabe für Periode anpassen
+        </h3>
+        <button onclick="closeModal('modal-auslage-edit')" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="saveBiMonthlyItem(event)" class="p-4 space-y-3">
+        <input type="hidden" id="edit-period-key">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1" id="edit-period-label">Monate</label>
+          <input type="text" id="edit-period-value" required placeholder="z. B. Wachtturm Nr. 1 / 2026 (Thema)" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-auslage-edit')" class="px-3 py-1.5 text-xs text-slate-600 border border-slate-300 rounded hover:bg-slate-50">Abbrechen</button>
+          <button type="submit" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded font-medium hover:bg-blue-500">Aktualisieren</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: NEUES BUCH / NEUERSCHEINUNG TITEL DEFINIEREN -->
+  <div id="modal-neuesbuch-edit" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+      <div class="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+          <i data-lucide="book-marked" class="w-4 h-4 text-blue-600"></i> Neuerscheinung / Buchtitel festlegen
+        </h3>
+        <button onclick="closeModal('modal-neuesbuch-edit')" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="saveNeuesBuchTitel(event)" class="p-4 space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Bezeichnung / Buchtitel *</label>
+          <input type="text" id="input-neuesbuch-titel" required placeholder="z. B. Kongress-Buch 2026 oder genauer Titel" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <p class="text-[11px] text-slate-400 mt-1">Dieser Titel wird für alle Literaturdiener in der Jahresabfrage angezeigt.</p>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-neuesbuch-edit')" class="px-3 py-1.5 text-xs text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">Abbrechen</button>
+          <button type="submit" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-500">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: VERSAMMLUNGS-PIN ÄNDERN -->
+  <div id="modal-pin-change" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+      <div class="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+          <i data-lucide="key-round" class="w-4 h-4 text-blue-600"></i> Versammlungs-PIN ändern
+        </h3>
+        <button onclick="closeModal('modal-pin-change')" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="saveNewPin(event)" class="p-4 space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Admin-Passwort *</label>
+          <input type="password" id="input-admin-password" required placeholder="Admin-Passwort eingeben" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Neue Versammlungs-PIN (4 bis 8 Ziffern) *</label>
+          <input type="text" id="input-new-pin" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" required placeholder="z. B. 2468" class="w-full p-2 border border-slate-300 rounded-lg text-sm font-mono tracking-widest focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <p class="text-[11px] text-slate-400 mt-1">Nur der Admin kann die PIN für alle Literaturdiener ändern.</p>
+        </div>
+        <p id="admin-pin-error" class="hidden text-xs text-rose-600 font-medium">Falsches Admin-Passwort!</p>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-pin-change')" class="px-3 py-1.5 text-xs text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">Abbrechen</button>
+          <button type="submit" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-500">PIN speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- FIREBASE MODULE & APPLICATION LOGIC -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // ----------------------------------------------------
+    // GLOBAL APP STATE & CONSTANTS
+    // ----------------------------------------------------
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'literatur-dashboard-illi-b65de';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+      apiKey: "AIzaSyADK_FifcOuJSvwq2jEPYCnrExG6SmlZLo",
+      authDomain: "literatur-dashboard-illi-b65de.firebaseapp.com",
+      projectId: "literatur-dashboard-illi-b65de",
+      storageBucket: "literatur-dashboard-illi-b65de.firebasestorage.app",
+      messagingSenderId: "376201581763",
+      appId: "1:376201581763:web:94c7d4d9d7ebf74f863e76"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Standard fallback languages
+    const DEFAULT_LANGUAGES = ['Deutsch', 'Englisch', 'Spanisch', 'Russisch', 'Arabisch', 'Ukrainisch', 'Türkisch', 'Italienisch'];
+
+    // Default bi-monthly schedule template
+    const DEFAULT_BI_MONTHLY = {
+      'Jan/Feb': 'Wachtturm Nr. 1 / 2026 - Ist das Leben sinnvoll?',
+      'Mär/Apr': 'Erwachet! Nr. 1 / 2026 - Mentale Gesundheit fördern',
+      'Mai/Jun': 'Wachtturm Nr. 2 / 2026 - Eine Hoffnung für die Verstorbenen',
+      'Jul/Aug': 'Erwachet! Nr. 2 / 2026 - Wie man Ängste überwinden kann',
+      'Sep/Okt': 'Wachtturm Nr. 3 / 2026 - Gute Nachricht von Gott',
+      'Nov/Dez': 'Erwachet! Nr. 3 / 2026 - Die Bibel & Wissenschaft'
+    };
+
+    // State object
+    window.appState = {
+      user: null,
+      verkuendigerList: [],
+      sprachenList: [],
+      sonderbestellungenList: [],
+      lieferplan: {
+        naechsteLieferung: '2026-04-15',
+        statusText: 'Bestellung im System eingereicht',
+        biMonthlyPlan: { ...DEFAULT_BI_MONTHLY },
+        neuesBuchTitel: 'Neues Buch / Neuerscheinung'
+      },
+      notiz: { text: '', updatedAt: '' },
+      aenderungenList: [],
+      seenChangeIds: new Set(),
+      initialChangesLoaded: false,
+      activeGroupFilter: 'alle',
+      activeJahresFilter: 'alle',
+      notizDebounceTimer: null,
+      currentPin: '1914',
+      isUnlocked: false
+    };
+
+    // ----------------------------------------------------
+    // PIN ACCESS PROTECTION
+    // ----------------------------------------------------
+    function initPinGate(activePin) {
+      window.appState.currentPin = activePin || '1914';
+      const submitBtn = document.getElementById('pin-submit-btn');
+      const hintEl = document.getElementById('pin-hint');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Entsperren';
+      }
+      if (hintEl && window.appState.currentPin !== '1914') {
+        hintEl.classList.add('hidden');
+      }
+      if (sessionStorage.getItem('lit_pin_unlocked') === window.appState.currentPin) {
+        unlockDashboard();
+      }
+    }
+
+    function unlockDashboard() {
+      window.appState.isUnlocked = true;
+      const overlay = document.getElementById('pin-lock-overlay');
+      if (overlay) overlay.classList.add('hidden');
+      renderAll();
+    }
+
+    window.verifyPin = function(e) {
+      e.preventDefault();
+      const inputEl = document.getElementById('pin-input');
+      const errEl = document.getElementById('pin-error-msg');
+      if (!inputEl) return;
+
+      if (inputEl.value.trim() === window.appState.currentPin) {
+        if (errEl) errEl.classList.add('hidden');
+        sessionStorage.setItem('lit_pin_unlocked', window.appState.currentPin);
+        unlockDashboard();
+      } else {
+        if (errEl) errEl.classList.remove('hidden');
+        inputEl.value = '';
+        inputEl.focus();
+      }
+    };
+
+    window.openPinChangeModal = function() {
+      const adminInput = document.getElementById('input-admin-password');
+      const inputEl = document.getElementById('input-new-pin');
+      const errEl = document.getElementById('admin-pin-error');
+      if (adminInput) adminInput.value = '';
+      if (inputEl) inputEl.value = window.appState.currentPin;
+      if (errEl) errEl.classList.add('hidden');
+      document.getElementById('modal-pin-change').classList.remove('hidden');
+    };
+
+    const ADMIN_MASTER_CODE = 'admin1914';
+
+    window.saveNewPin = async function(e) {
+      e.preventDefault();
+      if (!auth.currentUser) return;
+      const adminPass = document.getElementById('input-admin-password').value.trim();
+      const newPin = document.getElementById('input-new-pin').value.trim();
+      const errEl = document.getElementById('admin-pin-error');
+
+      if (adminPass !== ADMIN_MASTER_CODE) {
+        if (errEl) errEl.classList.remove('hidden');
+        return;
+      }
+      if (errEl) errEl.classList.add('hidden');
+      if (!newPin || newPin.length < 4) return;
+
+      try {
+        const secDoc = doc(db, 'artifacts', appId, 'public', 'data', 'einstellungen', 'sicherheit');
+        await setDoc(secDoc, { pin: newPin }, { merge: true });
+        window.appState.currentPin = newPin;
+        sessionStorage.setItem('lit_pin_unlocked', newPin);
+        await logAenderung('Sicherheit', 'Versammlungs-PIN wurde vom Admin geändert', 'update');
+        closeModal('modal-pin-change');
+        showToast('Neue Versammlungs-PIN gespeichert');
+      } catch (err) {
+        showToast('Fehler beim Speichern der PIN', 'error');
+      }
+    };
+
+    // ----------------------------------------------------
+    // ACTIVITY LOG / NOTIFICATION BELL HELPERS
+    // ----------------------------------------------------
+    async function logAenderung(kategorie, beschreibung, typ = 'update') {
+      if (!auth.currentUser) return;
+      try {
+        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'aenderungen');
+        const docRef = await addDoc(colRef, {
+          kategorie,
+          beschreibung,
+          typ,
+          timestamp: Date.now(),
+          zeitString: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+        });
+        // Mark own change as seen so user only gets notified for external changes or sees it in list
+        window.appState.seenChangeIds.add(docRef.id);
+      } catch (err) {
+        console.error('Fehler beim Protokollieren der Änderung:', err);
+      }
+    }
+
+    function renderNotifications() {
+      const listEl = document.getElementById('notification-list');
+      const badgeEl = document.getElementById('notification-badge');
+      const bellIcon = document.getElementById('notification-bell-icon');
+      if (!listEl || !badgeEl) return;
+
+      const sorted = [...window.appState.aenderungenList]
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .slice(0, 25);
+
+      const unreadCount = sorted.filter(item => !window.appState.seenChangeIds.has(item.id)).length;
+
+      if (unreadCount > 0) {
+        badgeEl.innerText = unreadCount > 9 ? '9+' : unreadCount;
+        badgeEl.classList.remove('hidden');
+        if (bellIcon) {
+          bellIcon.classList.remove('text-slate-300');
+          bellIcon.classList.add('text-amber-400');
+        }
+      } else {
+        badgeEl.classList.add('hidden');
+        if (bellIcon) {
+          bellIcon.classList.remove('text-amber-400');
+          bellIcon.classList.add('text-slate-300');
+        }
+      }
+
+      if (sorted.length === 0) {
+        listEl.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Noch keine Änderungen protokolliert.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = sorted.map(item => {
+        const isUnread = !window.appState.seenChangeIds.has(item.id);
+        let iconName = 'edit-3';
+        let iconColor = 'text-blue-600 bg-blue-50';
+        if (item.typ === 'add') {
+          iconName = 'plus-circle';
+          iconColor = 'text-emerald-600 bg-emerald-50';
+        } else if (item.typ === 'delete') {
+          iconName = 'trash-2';
+          iconColor = 'text-rose-600 bg-rose-50';
+        }
+
+        return `
+          <div class="p-3 transition flex items-start gap-2.5 ${isUnread ? 'bg-blue-50/60' : 'hover:bg-slate-50'}">
+            <div class="p-1.5 rounded-lg shrink-0 mt-0.5 ${iconColor}">
+              <i data-lucide="${iconName}" class="w-3.5 h-3.5"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">${escapeHtml(item.kategorie)}</span>
+                <span class="text-[10px] text-slate-400 shrink-0">${escapeHtml(item.zeitString || '')}</span>
+              </div>
+              <p class="text-xs text-slate-800 mt-0.5 leading-snug break-words">${escapeHtml(item.beschreibung)}</p>
+            </div>
+            ${isUnread ? '<span class="w-2 h-2 rounded-full bg-blue-600 shrink-0 mt-1.5" title="Ungelesen"></span>' : ''}
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    window.toggleNotificationPopover = function(e) {
+      if (e) e.stopPropagation();
+      const popover = document.getElementById('notification-popover');
+      if (!popover) return;
+      const isHidden = popover.classList.contains('hidden');
+      if (isHidden) {
+        popover.classList.remove('hidden');
+        renderNotifications();
+      } else {
+        popover.classList.add('hidden');
+      }
+    };
+
+    window.markAllNotificationsRead = function() {
+      window.appState.aenderungenList.forEach(item => {
+        window.appState.seenChangeIds.add(item.id);
+      });
+      renderNotifications();
+    };
+
+    document.addEventListener('click', function(e) {
+      const popover = document.getElementById('notification-popover');
+      const bellBtn = document.getElementById('notification-bell-btn');
+      if (popover && !popover.classList.contains('hidden')) {
+        if (!popover.contains(e.target) && (!bellBtn || !bellBtn.contains(e.target))) {
+          popover.classList.add('hidden');
+        }
+      }
+    });
+
+    // ----------------------------------------------------
+    // JAHRES- & NEUERSCHEINUNGS-ABFRAGE RENDERING
+    // ----------------------------------------------------
+    window.renderJahresabfrage = function() {
+      const container = document.getElementById('jahresabfrage-list');
+      const tabsContainer = document.getElementById('jahresabfrage-group-tabs');
+      if (!container) return;
+
+      const selectedGroup = window.appState.activeJahresFilter || 'alle';
+
+      if (tabsContainer) {
+        const groups = [
+          { id: 'alle', label: 'Alle' },
+          { id: '1', label: 'Gr. 1' },
+          { id: '2', label: 'Gr. 2' },
+          { id: '3', label: 'Gr. 3' },
+          { id: '4', label: 'Gr. 4' },
+          { id: '5', label: 'Gr. 5' },
+          { id: '6', label: 'Gr. 6' }
+        ];
+        tabsContainer.innerHTML = groups.map(g => `
+          <button onclick="setJahresGroupFilter('${g.id}')" class="px-2 py-0.5 text-[11px] rounded transition ${selectedGroup === g.id ? 'bg-slate-800 text-white font-semibold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+            ${g.label}
+          </button>
+        `).join('');
+      }
+
+      const filtered = window.appState.verkuendigerList.filter(v => {
+        return selectedGroup === 'alle' || String(v.gruppe) === selectedGroup;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs">Keine Verkündiger für die ausgewählte Gruppe vorhanden.</div>`;
+        return;
+      }
+
+      const sprachen = window.appState.sprachenList.length > 0 ? window.appState.sprachenList : DEFAULT_LANGUAGES;
+      const buchTitel = (window.appState.lieferplan && window.appState.lieferplan.neuesBuchTitel) || 'Neues Buch / Neuerscheinung';
+
+      container.innerHTML = filtered.map(v => {
+        const j = v.jahresabfrage || {};
+        const tt = j.tagestext || { aktiv: false, anzahl: 1, sprache: 'Deutsch', typ: 'Standard' };
+        const nb = j.neuesBuch || { aktiv: false, anzahl: 1, sprache: 'Deutsch', titel: '' };
+
+        return `
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 hover:border-slate-300 transition">
+            <div class="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
+              <span class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                <span class="w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold">${v.gruppe || 1}</span>
+                ${escapeHtml(v.name)}
+              </span>
+              <span class="text-[11px] text-slate-400">Gruppe ${v.gruppe || 1}</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              
+              <!-- Tagestext 2027 Control -->
+              <div class="p-2 rounded-lg border transition ${tt.aktiv ? 'bg-amber-50/70 border-amber-300' : 'bg-white border-slate-200'}">
+                <div class="flex items-center justify-between mb-1.5">
+                  <label class="font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" onchange="updateJahresField('${v.id}', 'tagestext', 'aktiv', this.checked)" ${tt.aktiv ? 'checked' : ''} class="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500">
+                    <span>Tagestext 2027</span>
+                  </label>
+                  ${tt.aktiv ? `<span class="text-[10px] font-bold text-amber-700 bg-amber-200/60 px-1.5 py-0.5 rounded">Aktiv</span>` : ''}
+                </div>
+
+                ${tt.aktiv ? `
+                  <div class="grid grid-cols-3 gap-1 pt-1">
+                    <select onchange="updateJahresField('${v.id}', 'tagestext', 'sprache', this.value)" class="text-[11px] p-1 bg-white border border-slate-300 rounded">
+                      ${sprachen.map(s => `<option value="${escapeHtml(s)}" ${tt.sprache === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+                    </select>
+
+                    <select onchange="updateJahresField('${v.id}', 'tagestext', 'typ', this.value)" class="text-[11px] p-1 bg-white border border-slate-300 rounded">
+                      <option value="Standard" ${tt.typ === 'Standard' ? 'selected' : ''}>Standard</option>
+                      <option value="Großdruck" ${tt.typ === 'Großdruck' ? 'selected' : ''}>Großdruck</option>
+                    </select>
+
+                    <select onchange="updateJahresField('${v.id}', 'tagestext', 'anzahl', parseInt(this.value))" class="text-[11px] p-1 bg-white border border-slate-300 rounded font-bold text-center">
+                      ${[1,2,3,4,5].map(n => `<option value="${n}" ${tt.anzahl == n ? 'selected' : ''}>${n}x</option>`).join('')}
+                    </select>
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Neues Buch / Neuerscheinung Control -->
+              <div class="p-2 rounded-lg border transition ${nb.aktiv ? 'bg-blue-50/70 border-blue-300' : 'bg-white border-slate-200'}">
+                <div class="flex items-center justify-between mb-1.5 gap-2">
+                  <label class="font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer min-w-0">
+                    <input type="checkbox" onchange="updateJahresField('${v.id}', 'neuesBuch', 'aktiv', this.checked)" ${nb.aktiv ? 'checked' : ''} class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 shrink-0">
+                    <span class="truncate" title="${escapeHtml(buchTitel)}">${escapeHtml(buchTitel)}</span>
+                  </label>
+                  ${nb.aktiv ? `<span class="text-[10px] font-bold text-blue-700 bg-blue-200/60 px-1.5 py-0.5 rounded shrink-0">Aktiv</span>` : ''}
+                </div>
+
+                ${nb.aktiv ? `
+                  <div class="grid grid-cols-2 gap-1 pt-1">
+                    <select onchange="updateJahresField('${v.id}', 'neuesBuch', 'sprache', this.value)" class="text-[11px] p-1 bg-white border border-slate-300 rounded">
+                      ${sprachen.map(s => `<option value="${escapeHtml(s)}" ${nb.sprache === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+                    </select>
+
+                    <select onchange="updateJahresField('${v.id}', 'neuesBuch', 'anzahl', parseInt(this.value))" class="text-[11px] p-1 bg-white border border-slate-300 rounded font-bold text-center">
+                      ${[1,2,3,4,5].map(n => `<option value="${n}" ${nb.anzahl == n ? 'selected' : ''}>${n}x</option>`).join('')}
+                    </select>
+                  </div>
+                ` : ''}
+              </div>
+
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    window.setJahresGroupFilter = function(grp) {
+      window.appState.activeJahresFilter = grp;
+      window.renderJahresabfrage();
+    };
+
+    window.updateJahresField = async function(verkuendigerId, itemType, field, value) {
+      if (!auth.currentUser) return;
+      const v = window.appState.verkuendigerList.find(x => x.id === verkuendigerId);
+      if (!v) return;
+
+      const jahres = v.jahresabfrage || {
+        tagestext: { aktiv: false, anzahl: 1, sprache: 'Deutsch', typ: 'Standard' },
+        neuesBuch: { aktiv: false, anzahl: 1, sprache: 'Deutsch', titel: '' }
+      };
+
+      if (!jahres[itemType]) {
+        jahres[itemType] = { aktiv: false, anzahl: 1, sprache: 'Deutsch', typ: 'Standard', titel: '' };
+      }
+
+      jahres[itemType][field] = value;
+
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'verkuendiger', verkuendigerId);
+        await updateDoc(docRef, { jahresabfrage: jahres });
+        const label = itemType === 'tagestext' ? 'Tagestext 2027' : 'Neues Buch';
+        await logAenderung('Jahresabfrage', `${v.name}: ${label} (${field}) angepasst`, 'update');
+      } catch (err) {
+        showToast('Fehler beim Aktualisieren der Abfrage', 'error');
+      }
+    };
+
+    // Calculate dynamic totals for Tagestext 2027 and Neues Buch
+    function updateTotalsAndStats() {
+      // ... existing code for WT/Öffentlichkeit/Arbeitshefte ...
+      let wtStudienTotal = 0;
+      let oeffentlichTotal = 0;
+      let arbeitsheftTotal = 0;
+
+      const langWtMap = {};
+      const langOeffMap = {};
+      const langAhMap = {};
+
+      // Jahresabfrage Counters
+      let ttTotalCount = 0;
+      let nbTotalCount = 0;
+      const ttBreakdown = {};
+      const nbBreakdown = {};
+
+      window.appState.verkuendigerList.forEach(v => {
+        (v.periodika || []).forEach(p => {
+          const qty = parseInt(p.anzahl || 1, 10);
+          const lang = p.sprache || 'Deutsch';
+          const formatSuffix = (p.typ === 'Studienausgabe' && p.format === 'Großdruck') ? ' (Großdruck)' : '';
+          const displayKey = `${lang}${formatSuffix}`;
+
+          if (p.typ === 'Studienausgabe') {
+            wtStudienTotal += qty;
+            langWtMap[displayKey] = (langWtMap[displayKey] || 0) + qty;
+          } else if (p.typ === 'Öffentlichkeit') {
+            oeffentlichTotal += qty;
+            langOeffMap[lang] = (langOeffMap[lang] || 0) + qty;
+          } else if (p.typ === 'Arbeitsheft') {
+            arbeitsheftTotal += qty;
+            langAhMap[lang] = (langAhMap[lang] || 0) + qty;
+          }
+        });
+
+        // Calculate Jahresabfrage totals
+        const j = v.jahresabfrage || {};
+        if (j.tagestext && j.tagestext.aktiv) {
+          const qty = parseInt(j.tagestext.anzahl || 1, 10);
+          const spr = j.tagestext.sprache || 'Deutsch';
+          const typ = j.tagestext.typ || 'Standard';
+          const key = `${spr}${typ === 'Großdruck' ? ' (Großdruck)' : ''}`;
+          ttTotalCount += qty;
+          ttBreakdown[key] = (ttBreakdown[key] || 0) + qty;
+        }
+
+        if (j.neuesBuch && j.neuesBuch.aktiv) {
+          const qty = parseInt(j.neuesBuch.anzahl || 1, 10);
+          const spr = j.neuesBuch.sprache || 'Deutsch';
+          nbTotalCount += qty;
+          nbBreakdown[spr] = (nbBreakdown[spr] || 0) + qty;
+        }
+      });
+
+      document.getElementById('stat-wt-studien').innerText = wtStudienTotal;
+      document.getElementById('stat-oeffentlich').innerText = oeffentlichTotal;
+      document.getElementById('stat-arbeitsheft').innerText = arbeitsheftTotal;
+
+      document.getElementById('stat-wt-studien-breakdown').innerText = formatLangBreakdown(langWtMap);
+      document.getElementById('stat-oeffentlich-breakdown').innerText = formatLangBreakdown(langOeffMap);
+      document.getElementById('stat-arbeitsheft-breakdown').innerText = formatLangBreakdown(langAhMap);
+
+      // Update Jahresabfrage header summary
+      const ttCountEl = document.getElementById('total-tagestext-count');
+      const ttBreakdownEl = document.getElementById('total-tagestext-breakdown');
+      const nbCountEl = document.getElementById('total-neuesbuch-count');
+      const nbBreakdownEl = document.getElementById('total-neuesbuch-breakdown');
+      const nbHeaderLabelEl = document.getElementById('neuesbuch-header-label');
+
+      if (nbHeaderLabelEl) {
+        const buchTitel = (window.appState.lieferplan && window.appState.lieferplan.neuesBuchTitel) || 'Neues Buch / Neuerscheinung';
+        nbHeaderLabelEl.innerText = buchTitel;
+        nbHeaderLabelEl.title = buchTitel;
+      }
+
+      if (ttCountEl) ttCountEl.innerText = ttTotalCount;
+      if (ttBreakdownEl) ttBreakdownEl.innerText = formatLangBreakdown(ttBreakdown);
+      if (nbCountEl) nbCountEl.innerText = nbTotalCount;
+      if (nbBreakdownEl) nbBreakdownEl.innerText = formatLangBreakdown(nbBreakdown);
+
+      // Update Top Overview Card for Tagestext & Neues Buch
+      const topJahresTitleEl = document.getElementById('stat-jahres-title');
+      const topJahresTotalEl = document.getElementById('stat-jahres-total');
+      const topJahresBreakdownEl = document.getElementById('stat-jahres-breakdown');
+      const buchKurzTitel = (window.appState.lieferplan && window.appState.lieferplan.neuesBuchTitel) || 'Neues Buch';
+
+      if (topJahresTitleEl) {
+        topJahresTitleEl.innerText = `Tagestext & ${buchKurzTitel}`;
+        topJahresTitleEl.title = `Tagestext & ${buchKurzTitel}`;
+      }
+      if (topJahresTotalEl) topJahresTotalEl.innerText = ttTotalCount + nbTotalCount;
+      if (topJahresBreakdownEl) {
+        topJahresBreakdownEl.innerText = `${ttTotalCount}x Tagestext · ${nbTotalCount}x ${buchKurzTitel}`;
+        topJahresBreakdownEl.title = `${ttTotalCount}x Tagestext · ${nbTotalCount}x ${buchKurzTitel}`;
+      }
+
+      // Render updated list
+      renderJahresabfrage();
+    }
+
+    function formatLangBreakdown(map) {
+      const keys = Object.keys(map);
+      if (keys.length === 0) return 'Keine Bestellungen';
+      return keys.map(k => `${map[k]}x ${k}`).join(', ');
+    }
+
+    // Update Verkündiger suggestions list for Sonderbestellungen modal
+    function updateVerkuendigerSuggestions() {
+      const datalist = document.getElementById('verkuendiger-suggestions');
+      if (!datalist) return;
+      datalist.innerHTML = window.appState.verkuendigerList
+        .map(v => `<option value="${escapeHtml(v.name)}"></option>`)
+        .join('');
+    }
+
+    // Populate Language dropdown options in modals
+    function populateSprachenDropdowns() {
+      const sprachen = window.appState.sprachenList.length > 0 
+        ? window.appState.sprachenList 
+        : DEFAULT_LANGUAGES;
+
+      const sonderSelect = document.getElementById('sonder-sprache');
+      if (sonderSelect) {
+        sonderSelect.innerHTML = sprachen.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+      }
+
+      // Update rows in Verkündiger modal if open
+      const rowSelects = document.querySelectorAll('.periodika-sprache-select');
+      rowSelects.forEach(sel => {
+        const currentVal = sel.value;
+        sel.innerHTML = sprachen.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+        if (currentVal) sel.value = currentVal;
+      });
+    }
+
+    function renderSprachenTags() {
+      const container = document.getElementById('sprachen-list-tags');
+      if (!container) return;
+
+      const sprachen = window.appState.sprachenList.length > 0 
+        ? window.appState.sprachenList 
+        : DEFAULT_LANGUAGES;
+
+      container.innerHTML = sprachen.map(s => `
+        <span class="px-2.5 py-1 bg-slate-100 border border-slate-200 text-slate-700 text-xs rounded-lg font-medium flex items-center gap-1.5">
+          <span>${escapeHtml(s)}</span>
+          ${!DEFAULT_LANGUAGES.includes(s) ? `<button onclick="deleteSprache('${escapeHtml(s)}')" class="text-slate-400 hover:text-red-500"><i data-lucide="x" class="w-3 h-3"></i></button>` : ''}
+        </span>
+      `).join('');
+
+      lucide.createIcons();
+    }
+
+    // ----------------------------------------------------
+    // VERKÜNDIGER ACTIONS & MODAL LOGIC
+    // ----------------------------------------------------
+    window.openVerkuendigerModal = function(verkuendigerId = null) {
+      const modal = document.getElementById('modal-verkuendiger');
+      const form = document.getElementById('form-verkuendiger');
+      if (!modal || !form) return;
+      form.reset();
+
+      document.getElementById('verkuendiger-id').value = '';
+      document.getElementById('modal-verkuendiger-title').innerHTML = `
+        <i data-lucide="user-plus" class="w-5 h-5 text-blue-600"></i> Verkündiger hinzufügen
+      `;
+
+      const container = document.getElementById('periodika-rows-container');
+      container.innerHTML = '';
+
+      if (verkuendigerId) {
+        const v = window.appState.verkuendigerList.find(item => item.id === verkuendigerId);
+        if (v) {
+          document.getElementById('verkuendiger-id').value = v.id;
+          document.getElementById('verkuendiger-name').value = v.name;
+          document.getElementById('verkuendiger-gruppe').value = v.gruppe || 1;
+          document.getElementById('verkuendiger-anmerkung').value = v.anmerkung || '';
+
+          document.getElementById('modal-verkuendiger-title').innerHTML = `
+            <i data-lucide="edit" class="w-5 h-5 text-blue-600"></i> Verkündiger bearbeiten
+          `;
+
+          (v.periodika || []).forEach(p => addPeriodikaRow(p));
+        }
+      } else {
+        // Default 2 rows for new publisher (Arbeitsheft first, then Studienausgabe)
+        addPeriodikaRow({ typ: 'Arbeitsheft', sprache: 'Deutsch', anzahl: 1 });
+        addPeriodikaRow({ typ: 'Studienausgabe', sprache: 'Deutsch', anzahl: 1 });
+      }
+
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+    };
+
+    window.addPeriodikaRow = function(data = null) {
+      const container = document.getElementById('periodika-rows-container');
+      if (!container) return;
+
+      const sprachen = window.appState.sprachenList.length > 0 
+        ? window.appState.sprachenList 
+        : DEFAULT_LANGUAGES;
+
+      const rowId = 'row-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+
+      const div = document.createElement('div');
+      div.id = rowId;
+      div.className = "flex flex-wrap sm:flex-nowrap items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg";
+
+      div.innerHTML = `
+        <select onchange="togglePeriodikaFormat(this)" class="periodika-typ-select text-xs p-2 bg-white border border-slate-300 rounded flex-1 min-w-[130px]">
+          <option value="Arbeitsheft" ${(!data || data.typ === 'Arbeitsheft') ? 'selected' : ''}>Arbeitsheft</option>
+          <option value="Studienausgabe" ${data?.typ === 'Studienausgabe' ? 'selected' : ''}>Studienausgabe</option>
+          <option value="Öffentlichkeit" ${data?.typ === 'Öffentlichkeit' ? 'selected' : ''}>Ausgabe Öffentlichkeit</option>
+        </select>
+
+        <select class="periodika-format-select text-xs p-2 bg-white border border-slate-300 rounded w-28 ${(data && data.typ === 'Studienausgabe') ? '' : 'hidden'}">
+          <option value="Normal" ${data?.format !== 'Großdruck' ? 'selected' : ''}>Normal</option>
+          <option value="Großdruck" ${data?.format === 'Großdruck' ? 'selected' : ''}>Großdruck</option>
+        </select>
+
+        <select class="periodika-sprache-select text-xs p-2 bg-white border border-slate-300 rounded flex-1 min-w-[100px]">
+          ${sprachen.map(s => `<option value="${escapeHtml(s)}" ${data?.sprache === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+        </select>
+
+        <select class="periodika-anzahl-select text-xs p-2 bg-white border border-slate-300 rounded w-16 font-semibold">
+          ${[1,2,3,4,5,6,7,8,9,10].map(n => `<option value="${n}" ${data?.anzahl == n ? 'selected' : ''}>${n}x</option>`).join('')}
+        </select>
+
+        <button type="button" onclick="document.getElementById('${rowId}').remove()" class="p-1.5 text-slate-400 hover:text-red-600 rounded">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
+      `;
+
+      container.appendChild(div);
+      lucide.createIcons();
+    };
+
+    window.togglePeriodikaFormat = function(typSelect) {
+      const row = typSelect.closest('div');
+      const formatSelect = row.querySelector('.periodika-format-select');
+      if (!formatSelect) return;
+      if (typSelect.value === 'Studienausgabe') {
+        formatSelect.classList.remove('hidden');
+      } else {
+        formatSelect.classList.add('hidden');
+        formatSelect.value = 'Normal';
+      }
+    };
+
+    window.saveVerkuendiger = async function(e) {
+      e.preventDefault();
+      if (!auth.currentUser) return;
+
+      const id = document.getElementById('verkuendiger-id').value;
+      const name = document.getElementById('verkuendiger-name').value.trim();
+      const gruppe = parseInt(document.getElementById('verkuendiger-gruppe').value, 10);
+      const anmerkung = document.getElementById('verkuendiger-anmerkung').value.trim();
+
+      // Collect rows
+      const rows = document.querySelectorAll('#periodika-rows-container > div');
+      const periodika = [];
+      rows.forEach(r => {
+        const typ = r.querySelector('.periodika-typ-select').value;
+        const formatEl = r.querySelector('.periodika-format-select');
+        const format = (typ === 'Studienausgabe' && formatEl) ? formatEl.value : 'Normal';
+        const sprache = r.querySelector('.periodika-sprache-select').value;
+        const anzahl = parseInt(r.querySelector('.periodika-anzahl-select').value, 10);
+        periodika.push({ typ, format, sprache, anzahl });
+      });
+
+      const data = { name, gruppe, periodika, anmerkung };
+
+      try {
+        if (id) {
+          const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'verkuendiger', id);
+          await updateDoc(docRef, data);
+          await logAenderung('Periodika', `Verkündiger "${name}" (Gr. ${gruppe}) bearbeitet`, 'update');
+          showToast('Verkündiger aktualisiert');
+        } else {
+          const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'verkuendiger');
+          await addDoc(colRef, data);
+          await logAenderung('Periodika', `Neuer Verkündiger "${name}" (Gr. ${gruppe}) hinzugefügt`, 'add');
+          showToast('Verkündiger gespeichert');
+        }
+        closeModal('modal-verkuendiger');
+      } catch (err) {
+        showToast('Fehler beim Speichern: ' + err.message, 'error');
+      }
+    };
+
+    window.editVerkuendiger = function(id) {
+      openVerkuendigerModal(id);
+    };
+
+    window.deleteVerkuendiger = async function(id) {
+      if (!auth.currentUser) return;
+      const v = window.appState.verkuendigerList.find(x => x.id === id);
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'verkuendiger', id);
+        await deleteDoc(docRef);
+        await logAenderung('Periodika', `Verkündiger "${v ? v.name : 'Unbekannt'}" gelöscht`, 'delete');
+        showToast('Verkündiger gelöscht');
+      } catch (err) {
+        showToast('Fehler beim Löschen', 'error');
+      }
+    };
+
+    // ----------------------------------------------------
+    // SPRACHEN ACTIONS
+    // ----------------------------------------------------
+    window.openSpracheModal = function() {
+      document.getElementById('modal-sprache').classList.remove('hidden');
+      renderSprachenTags();
+    };
+
+    window.saveNeueSprache = async function(e) {
+      e.preventDefault();
+      const input = document.getElementById('neue-sprache-name');
+      const val = input.value.trim();
+      if (!val) return;
+
+      if (!auth.currentUser) return;
+
+      try {
+        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'sprachen');
+        await addDoc(colRef, { name: val });
+        await logAenderung('Sprachen', `Neue Sprache "${val}" hinzugefügt`, 'add');
+        input.value = '';
+        showToast(`Sprache "${val}" hinzugefügt`);
+      } catch (err) {
+        showToast('Fehler beim Hinzufügen der Sprache', 'error');
+      }
+    };
+
+    window.deleteSprache = async function(spracheName) {
+      if (!auth.currentUser) return;
+      try {
+        const sprachenCol = collection(db, 'artifacts', appId, 'public', 'data', 'sprachen');
+        // Snapshot matches name locally
+        const docsSnap = window.appState.sprachenList;
+        showToast(`Sprache ${spracheName} entfernt`);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    // ----------------------------------------------------
+    // SONDERBESTELLUNGEN ACTIONS
+    // ----------------------------------------------------
+    window.openSonderbestellungModal = function() {
+      const modal = document.getElementById('modal-sonderbestellung');
+      const form = document.getElementById('form-sonderbestellung');
+      if (!modal || !form) return;
+      form.reset();
+      document.getElementById('sonder-id').value = '';
+      populateSprachenDropdowns();
+      modal.classList.remove('hidden');
+    };
+
+    window.saveSonderbestellung = async function(e) {
+      e.preventDefault();
+      if (!auth.currentUser) return;
+
+      const id = document.getElementById('sonder-id').value;
+      const verkuendigerName = document.getElementById('sonder-verkuendiger').value.trim();
+      const artikel = document.getElementById('sonder-artikel').value.trim();
+      const sprache = document.getElementById('sonder-sprache').value;
+      const anzahl = parseInt(document.getElementById('sonder-anzahl').value, 10);
+      const status = document.getElementById('sonder-status').value;
+      const notiz = document.getElementById('sonder-notiz').value.trim();
+
+      const data = { verkuendigerName, artikel, sprache, anzahl, status, notiz, datum: new Date().toISOString().split('T')[0] };
+
+      try {
+        if (id) {
+          const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'sonderbestellungen', id);
+          await updateDoc(docRef, data);
+          await logAenderung('Sonderbestellung', `${verkuendigerName}: ${anzahl}x ${artikel} (${sprache}) bearbeitet`, 'update');
+          showToast('Sonderbestellung aktualisiert');
+        } else {
+          const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'sonderbestellungen');
+          await addDoc(colRef, data);
+          await logAenderung('Sonderbestellung', `${verkuendigerName}: ${anzahl}x ${artikel} (${sprache}) bestellt`, 'add');
+          showToast('Sonderbestellung angelegt');
+        }
+        closeModal('modal-sonderbestellung');
+      } catch (err) {
+        showToast('Fehler beim Speichern', 'error');
+      }
+    };
+
+    window.cycleSonderStatus = async function(id, currentStatus) {
+      if (!auth.currentUser) return;
+      const s = window.appState.sonderbestellungenList.find(x => x.id === id);
+      let nextStatus = 'Offen';
+      if (currentStatus === 'Offen') nextStatus = 'Angekommen';
+      else if (currentStatus === 'Angekommen') nextStatus = 'Ausgehändigt';
+
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'sonderbestellungen', id);
+        await updateDoc(docRef, { status: nextStatus });
+        await logAenderung('Sonderbestellung', `${s ? s.verkuendigerName + ' (' + s.artikel + ')' : 'Artikel'}: Status auf "${nextStatus}" gesetzt`, 'update');
+        showToast(`Status auf "${nextStatus}" geändert`);
+      } catch (err) {
+        showToast('Fehler beim Ändern des Status', 'error');
+      }
+    };
+
+    window.deleteSonderbestellung = async function(id) {
+      if (!auth.currentUser) return;
+      const s = window.appState.sonderbestellungenList.find(x => x.id === id);
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'sonderbestellungen', id);
+        await deleteDoc(docRef);
+        await logAenderung('Sonderbestellung', `${s ? s.verkuendigerName + ' (' + s.artikel + ')' : 'Eintrag'} gelöscht`, 'delete');
+        showToast('Sonderbestellung gelöscht');
+      } catch (err) {
+        showToast('Fehler beim Löschen', 'error');
+      }
+    };
+
+    // ----------------------------------------------------
+    // LIEFERPLAN & AUSLAGE ACTIONS
+    // ----------------------------------------------------
+    window.toggleLieferplanEdit = function() {
+      const readView = document.getElementById('lieferung-read-view');
+      const editView = document.getElementById('lieferung-edit-view');
+      if (readView && editView) {
+        readView.classList.toggle('hidden');
+        editView.classList.toggle('hidden');
+      }
+    };
+
+    window.saveLieferplan = async function() {
+      if (!auth.currentUser) return;
+      const datum = document.getElementById('input-naechste-lieferung').value;
+      const statusText = document.getElementById('input-lieferung-status').value;
+
+      const currentPlan = window.appState.lieferplan || {};
+      currentPlan.naechsteLieferung = datum;
+      currentPlan.statusText = statusText;
+
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'einstellungen', 'lieferplan');
+        await setDoc(docRef, currentPlan, { merge: true });
+        await logAenderung('Lieferung', `Nächste Lieferung auf ${datum ? formatDate(datum) : 'offen'} (${statusText || 'ohne Status'}) aktualisiert`, 'update');
+        toggleLieferplanEdit();
+        showToast('Lieferdaten aktualisiert');
+      } catch (err) {
+        showToast('Fehler beim Speichern', 'error');
+      }
+    };
+
+    window.openAuslageEditModal = function(key, val) {
+      document.getElementById('edit-period-key').value = key;
+      document.getElementById('edit-period-label').innerText = `Ausgabe für ${key}`;
+      document.getElementById('edit-period-value').value = val;
+      document.getElementById('modal-auslage-edit').classList.remove('hidden');
+    };
+
+    window.saveBiMonthlyItem = async function(e) {
+      e.preventDefault();
+      if (!auth.currentUser) return;
+
+      const key = document.getElementById('edit-period-key').value;
+      const val = document.getElementById('edit-period-value').value.trim();
+
+      const currentPlan = window.appState.lieferplan || {};
+      if (!currentPlan.biMonthlyPlan) currentPlan.biMonthlyPlan = { ...DEFAULT_BI_MONTHLY };
+      currentPlan.biMonthlyPlan[key] = val;
+
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'einstellungen', 'lieferplan');
+        await setDoc(docRef, currentPlan, { merge: true });
+        await logAenderung('Auslage-Planer', `Ausgabe für ${key} auf "${val}" geändert`, 'update');
+        closeModal('modal-auslage-edit');
+        showToast('Auslage-Planer aktualisiert');
+      } catch (err) {
+        showToast('Fehler beim Aktualisieren', 'error');
+      }
+    };
+
+    window.openNeuesBuchModal = function() {
+      const currentTitel = (window.appState.lieferplan && window.appState.lieferplan.neuesBuchTitel) || 'Neues Buch / Neuerscheinung';
+      document.getElementById('input-neuesbuch-titel').value = currentTitel;
+      document.getElementById('modal-neuesbuch-edit').classList.remove('hidden');
+    };
+
+    window.saveNeuesBuchTitel = async function(e) {
+      e.preventDefault();
+      if (!auth.currentUser) return;
+
+      const neuerTitel = document.getElementById('input-neuesbuch-titel').value.trim();
+      if (!neuerTitel) return;
+
+      const currentPlan = window.appState.lieferplan || {};
+      currentPlan.neuesBuchTitel = neuerTitel;
+
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'einstellungen', 'lieferplan');
+        await setDoc(docRef, { neuesBuchTitel: neuerTitel }, { merge: true });
+        await logAenderung('Jahresabfrage', `Neuerscheinung-Titel auf "${neuerTitel}" geändert`, 'update');
+        closeModal('modal-neuesbuch-edit');
+        updateTotalsAndStats();
+        showToast('Titel der Neuerscheinung gespeichert');
+      } catch (err) {
+        showToast('Fehler beim Speichern des Titels', 'error');
+      }
+    };
+
+    // ----------------------------------------------------
+    // NOTIZEN ACTIONS (Collaborative Real-time Text)
+    // ----------------------------------------------------
+    window.handleNotizInput = function() {
+      const status = document.getElementById('notiz-status');
+      if (status) status.innerText = 'Speichere...';
+
+      if (window.appState.notizDebounceTimer) clearTimeout(window.appState.notizDebounceTimer);
+      window.appState.notizDebounceTimer = setTimeout(() => {
+        saveNotizen();
+      }, 1500);
+    };
+
+    window.saveNotizen = async function() {
+      if (!auth.currentUser) return;
+      const text = document.getElementById('notiz-text').value;
+      const updatedAt = new Date().toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
+
+      try {
+        const notizDoc = doc(db, 'artifacts', appId, 'public', 'data', 'notizen', 'hauptnotiz');
+        await setDoc(notizDoc, { text, updatedAt }, { merge: true });
+        await logAenderung('Notizen', 'Gemeinsame Notizen für Literaturdiener aktualisiert', 'update');
+        const status = document.getElementById('notiz-status');
+        if (status) status.innerText = 'Synchronisiert';
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    // ----------------------------------------------------
+    // UI HELPERS & UTILITIES
+    // ----------------------------------------------------
+    window.toggleCardSection = function(bodyId, chevronId) {
+      const bodyEl = document.getElementById(bodyId);
+      const chevronEl = document.getElementById(chevronId);
+      if (!bodyEl) return;
+      const isHidden = bodyEl.classList.toggle('hidden');
+      if (chevronEl) {
+        chevronEl.style.transform = isHidden ? 'rotate(-90deg)' : 'rotate(0deg)';
+      }
+    };
+
+    window.closeModal = function(id) {
+      document.getElementById(id).classList.add('hidden');
+    };
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+      return dateStr;
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      const bg = type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-800 text-white';
+
+      toast.className = `px-4 py-2.5 rounded-xl shadow-lg text-xs font-medium ${bg} transition transform duration-300 translate-y-2 opacity-0 pointer-events-auto flex items-center gap-2`;
+      toast.innerHTML = `
+        <i data-lucide="${type === 'error' ? 'alert-circle' : 'check-circle'}" class="w-4 h-4"></i>
+        <span>${escapeHtml(message)}</span>
+      `;
+
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // ----------------------------------------------------
+    // RENDER FUNCTIONS FOR MAIN CARDS
+    // ----------------------------------------------------
+    window.renderVerkuendiger = function() {
+      const listContainer = document.getElementById('verkuendiger-list');
+      const tabsContainer = document.getElementById('group-tabs-container');
+      const countBadge = document.getElementById('verkuendiger-count-badge');
+      const searchInput = document.getElementById('search-verkuendiger');
+      if (!listContainer) return;
+
+      const selectedGroup = window.appState.activeGroupFilter || 'alle';
+      const searchTerm = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+      if (tabsContainer) {
+        const groups = [
+          { id: 'alle', label: 'Alle' },
+          { id: '1', label: 'Gr. 1' },
+          { id: '2', label: 'Gr. 2' },
+          { id: '3', label: 'Gr. 3' },
+          { id: '4', label: 'Gr. 4' },
+          { id: '5', label: 'Gr. 5' },
+          { id: '6', label: 'Gr. 6' }
+        ];
+        tabsContainer.innerHTML = groups.map(g => `
+          <button onclick="setVerkuendigerGroupFilter('${g.id}')" class="px-2.5 py-1 text-xs rounded-lg whitespace-nowrap transition ${selectedGroup === g.id ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
+            ${g.label}
+          </button>
+        `).join('');
+      }
+
+      const filtered = window.appState.verkuendigerList.filter(v => {
+        const matchesGroup = selectedGroup === 'alle' || String(v.gruppe) === selectedGroup;
+        if (!matchesGroup) return false;
+        if (!searchTerm) return true;
+        const inName = (v.name || '').toLowerCase().includes(searchTerm);
+        const inNote = (v.anmerkung || '').toLowerCase().includes(searchTerm);
+        const inLang = (v.periodika || []).some(p => (p.sprache || '').toLowerCase().includes(searchTerm) || (p.typ || '').toLowerCase().includes(searchTerm));
+        return inName || inNote || inLang;
+      });
+
+      if (countBadge) countBadge.innerText = filtered.length;
+
+      if (filtered.length === 0) {
+        listContainer.innerHTML = `<div class="text-center py-10 text-slate-400 text-sm">Keine Verkündiger gefunden. Über „+ Neu hinzufügen“ anlegen.</div>`;
+        return;
+      }
+
+      // Group by Predigtdienstgruppe (1-6)
+      const grouped = {};
+      for (let i = 1; i <= 6; i++) grouped[i] = [];
+      filtered.forEach(v => {
+        const g = v.gruppe >= 1 && v.gruppe <= 6 ? v.gruppe : 1;
+        grouped[g].push(v);
+      });
+
+      let html = '';
+      for (let g = 1; g <= 6; g++) {
+        if (grouped[g].length === 0) continue;
+        html += `
+          <div class="space-y-2.5">
+            <div class="flex items-center gap-2 pb-1 border-b border-slate-100">
+              <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-bold rounded-md">Predigtdienstgruppe ${g}</span>
+              <span class="text-xs text-slate-400">(${grouped[g].length} Verkündiger)</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              ${grouped[g].map(v => `
+                <div class="p-3 bg-slate-50/70 border border-slate-200 rounded-xl hover:border-blue-300 transition flex flex-col justify-between gap-2">
+                  <div>
+                    <div class="flex items-start justify-between gap-2">
+                      <span class="font-bold text-slate-800 text-sm">${escapeHtml(v.name)}</span>
+                      <div class="flex items-center gap-1 shrink-0">
+                        <button onclick="editVerkuendiger('${v.id}')" title="Bearbeiten" class="p-1 text-slate-400 hover:text-blue-600 rounded">
+                          <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="deleteVerkuendiger('${v.id}')" title="Löschen" class="p-1 text-slate-400 hover:text-red-600 rounded">
+                          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                      </div>
+                    </div>
+                    ${v.anmerkung ? `<p class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(v.anmerkung)}</p>` : ''}
+                  </div>
+                  <div class="flex flex-wrap gap-1.5 pt-1">
+                    ${(v.periodika && v.periodika.length > 0) ? v.periodika.map(p => {
+                      let badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
+                      if (p.typ === 'Öffentlichkeit') badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                      if (p.typ === 'Arbeitsheft') badgeColor = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                      const formatLabel = (p.typ === 'Studienausgabe' && p.format === 'Großdruck') ? ' · Großdruck' : '';
+                      return `<span class="text-[11px] px-2 py-0.5 rounded-md border font-medium ${badgeColor}">${p.anzahl}x ${escapeHtml(p.typ)}${formatLabel} (${escapeHtml(p.sprache)})</span>`;
+                    }).join('') : '<span class="text-xs text-slate-400 italic">Keine Periodika</span>'}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+      listContainer.innerHTML = html;
+      lucide.createIcons();
+    };
+
+    window.setVerkuendigerGroupFilter = function(grp) {
+      window.appState.activeGroupFilter = grp;
+      window.renderVerkuendiger();
+    };
+
+    window.renderSonderbestellungen = function() {
+      const tbody = document.getElementById('sonderbestellung-table-body');
+      const countBadge = document.getElementById('sonder-count-badge');
+      const filterSelect = document.getElementById('filter-sonder-status');
+      if (!tbody) return;
+
+      const statusFilter = filterSelect ? filterSelect.value : 'alle';
+      const list = window.appState.sonderbestellungenList.filter(item => {
+        if (statusFilter === 'alle') return true;
+        return item.status === statusFilter;
+      });
+
+      if (countBadge) countBadge.innerText = list.length;
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-3 py-6 text-center text-slate-400 text-xs">Keine Sonderbestellungen in dieser Ansicht.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map(s => {
+        let statusStyle = 'bg-amber-100 text-amber-800 border-amber-200';
+        if (s.status === 'Angekommen') statusStyle = 'bg-blue-100 text-blue-800 border-blue-200';
+        if (s.status === 'Ausgehändigt') statusStyle = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="px-3 py-2.5 font-semibold text-slate-800">${escapeHtml(s.verkuendigerName)}</td>
+            <td class="px-3 py-2.5">
+              <div class="font-medium text-slate-700">${escapeHtml(s.artikel)}</div>
+              ${s.notiz ? `<div class="text-[11px] text-slate-400">${escapeHtml(s.notiz)}</div>` : ''}
+            </td>
+            <td class="px-3 py-2.5 text-xs">${escapeHtml(s.sprache)}</td>
+            <td class="px-3 py-2.5 text-center font-bold text-slate-700">${s.anzahl}x</td>
+            <td class="px-3 py-2.5">
+              <button onclick="cycleSonderStatus('${s.id}', '${escapeHtml(s.status)}')" title="Status weiterschalten" class="px-2 py-0.5 text-[11px] font-semibold rounded-full border ${statusStyle} hover:opacity-80 transition">
+                ${escapeHtml(s.status)}
+              </button>
+            </td>
+            <td class="px-3 py-2.5 text-right">
+              <button onclick="deleteSonderbestellung('${s.id}')" title="Löschen" class="p-1 text-slate-400 hover:text-red-600 rounded">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      lucide.createIcons();
+    };
+
+    function renderLieferplan() {
+      const plan = window.appState.lieferplan || {};
+      const dateDisplay = document.getElementById('display-naechste-lieferung');
+      const statusDisplay = document.getElementById('display-lieferung-status');
+      const dateInput = document.getElementById('input-naechste-lieferung');
+      const statusInput = document.getElementById('input-lieferung-status');
+
+      if (dateDisplay) dateDisplay.innerText = plan.naechsteLieferung ? formatDate(plan.naechsteLieferung) : 'Noch kein Datum eingegeben';
+      if (statusDisplay) statusDisplay.innerText = plan.statusText || 'Kein Status';
+      if (dateInput && plan.naechsteLieferung) dateInput.value = plan.naechsteLieferung;
+      if (statusInput && plan.statusText) statusInput.value = plan.statusText;
+
+      const listContainer = document.getElementById('bi-monthly-schedule-list');
+      if (!listContainer) return;
+
+      const schedule = plan.biMonthlyPlan || DEFAULT_BI_MONTHLY;
+      const monthIndex = new Date().getMonth();
+      const periodKeys = ['Jan/Feb', 'Mär/Apr', 'Mai/Jun', 'Jul/Aug', 'Sep/Okt', 'Nov/Dez'];
+      const currentPeriodKey = periodKeys[Math.floor(monthIndex / 2)];
+
+      listContainer.innerHTML = periodKeys.map(key => {
+        const val = schedule[key] || DEFAULT_BI_MONTHLY[key] || '';
+        const isCurrent = key === currentPeriodKey;
+        return `
+          <div class="p-2.5 rounded-xl border transition flex items-start justify-between gap-2 ${isCurrent ? 'bg-blue-50/80 border-blue-300 ring-1 ring-blue-200' : 'bg-slate-50 border-slate-200'}">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold ${isCurrent ? 'text-blue-800' : 'text-slate-700'}">${key}</span>
+                ${isCurrent ? '<span class="text-[10px] font-bold px-1.5 py-0.2 bg-blue-600 text-white rounded">Aktuell</span>' : ''}
+              </div>
+              <p class="text-xs text-slate-600 mt-0.5">${escapeHtml(val)}</p>
+            </div>
+            <button onclick="openAuslageEditModal('${key}', '${escapeHtml(val)}')" title="Ausgabe bearbeiten" class="p-1 text-slate-400 hover:text-blue-600 rounded shrink-0">
+              <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    // ----------------------------------------------------
+    // FIREBASE AUTH & REAL-TIME LISTENERS
+    // ----------------------------------------------------
+    function initAuth() {
+      const statusText = document.getElementById('sync-status-text');
+      const statusDot = document.getElementById('sync-status-dot');
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          window.appState.user = user;
+          if (statusText) statusText.innerText = 'Echtzeit-Synchronisation aktiv';
+          if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+          setupFirestoreListeners();
+        }
+      });
+
+      const doSignIn = async () => {
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+        } catch (err) {
+          console.error('Auth Fehler:', err);
+          if (statusText) statusText.innerText = 'Offline-Modus (Demo)';
+          if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+          initPinGate('1914');
+          renderAll();
+        }
+      };
+      doSignIn();
+    }
+
+    function renderAll() {
+      updateTotalsAndStats();
+      renderVerkuendiger();
+      renderSonderbestellungen();
+      renderLieferplan();
+      populateSprachenDropdowns();
+      updateVerkuendigerSuggestions();
+    }
+
+    async function seedInitialVerkuendiger() {
+      if (!auth.currentUser) return;
+      const sampleVerkuendiger = [
+        {
+          name: 'Thomas Weber',
+          gruppe: 1,
+          anmerkung: 'Dienstamtgehilfe',
+          periodika: [
+            { typ: 'Studienausgabe', format: 'Normal', sprache: 'Deutsch', anzahl: 1 },
+            { typ: 'Arbeitsheft', format: 'Normal', sprache: 'Deutsch', anzahl: 1 }
+          ],
+          jahresabfrage: {
+            tagestext: { aktiv: true, anzahl: 1, sprache: 'Deutsch', typ: 'Standard' },
+            neuesBuch: { aktiv: true, anzahl: 1, sprache: 'Deutsch', titel: '' }
+          }
+        },
+        {
+          name: 'Helga Schneider',
+          gruppe: 2,
+          anmerkung: '',
+          periodika: [
+            { typ: 'Studienausgabe', format: 'Großdruck', sprache: 'Deutsch', anzahl: 1 },
+            { typ: 'Öffentlichkeit', format: 'Normal', sprache: 'Deutsch', anzahl: 2 }
+          ],
+          jahresabfrage: {
+            tagestext: { aktiv: true, anzahl: 1, sprache: 'Deutsch', typ: 'Großdruck' },
+            neuesBuch: { aktiv: false, anzahl: 1, sprache: 'Deutsch', titel: '' }
+          }
+        }
+      ];
+
+      try {
+        const verkCol = collection(db, 'artifacts', appId, 'public', 'data', 'verkuendiger');
+        for (const item of sampleVerkuendiger) {
+          await addDoc(verkCol, item);
+        }
+      } catch (err) {
+        console.error('Fehler beim Anlegen der Beispieldaten:', err);
+      }
+    }
+
+    function setupFirestoreListeners() {
+      let initialSeedChecked = false;
+
+      // 1. Verkündiger Listener
+      const verkCol = collection(db, 'artifacts', appId, 'public', 'data', 'verkuendiger');
+      onSnapshot(verkCol, async (snap) => {
+        window.appState.verkuendigerList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (snap.empty && !initialSeedChecked) {
+          initialSeedChecked = true;
+          await seedInitialVerkuendiger();
+          return;
+        }
+        initialSeedChecked = true;
+        updateTotalsAndStats();
+        renderVerkuendiger();
+        updateVerkuendigerSuggestions();
+      }, (err) => console.error('Verkündiger Snapshot Fehler:', err));
+
+      // 2. Sprachen Listener
+      const sprCol = collection(db, 'artifacts', appId, 'public', 'data', 'sprachen');
+      onSnapshot(sprCol, (snap) => {
+        const customSprachen = snap.docs.map(d => d.data().name).filter(Boolean);
+        window.appState.sprachenList = Array.from(new Set([...DEFAULT_LANGUAGES, ...customSprachen]));
+        populateSprachenDropdowns();
+        renderSprachenTags();
+        renderJahresabfrage();
+      }, (err) => console.error('Sprachen Snapshot Fehler:', err));
+
+      // 3. Sonderbestellungen Listener
+      const sonderCol = collection(db, 'artifacts', appId, 'public', 'data', 'sonderbestellungen');
+      onSnapshot(sonderCol, (snap) => {
+        window.appState.sonderbestellungenList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderSonderbestellungen();
+        updateTotalsAndStats();
+      }, (err) => console.error('Sonderbestellungen Snapshot Fehler:', err));
+
+      // 4. Lieferplan Listener
+      const lieferDoc = doc(db, 'artifacts', appId, 'public', 'data', 'einstellungen', 'lieferplan');
+      onSnapshot(lieferDoc, (snap) => {
+        if (snap.exists()) {
+          window.appState.lieferplan = { ...window.appState.lieferplan, ...snap.data() };
+        }
+        renderLieferplan();
+        updateTotalsAndStats();
+      }, (err) => console.error('Lieferplan Snapshot Fehler:', err));
+
+      // 5. Notizen Listener
+      const notizDoc = doc(db, 'artifacts', appId, 'public', 'data', 'notizen', 'hauptnotiz');
+      onSnapshot(notizDoc, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          const textarea = document.getElementById('notiz-text');
+          const updatedEl = document.getElementById('notiz-last-updated');
+          if (textarea && document.activeElement !== textarea) {
+            textarea.value = data.text || '';
+          }
+          if (updatedEl && data.updatedAt) {
+            updatedEl.innerText = `Zuletzt aktualisiert: ${data.updatedAt}`;
+          }
+        }
+      }, (err) => console.error('Notizen Snapshot Fehler:', err));
+
+      // 6. Änderungsprotokoll / Benachrichtigungs-Glocke Listener
+      const aenderungenCol = collection(db, 'artifacts', appId, 'public', 'data', 'aenderungen');
+      onSnapshot(aenderungenCol, (snap) => {
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (!window.appState.initialChangesLoaded) {
+          items.forEach(item => window.appState.seenChangeIds.add(item.id));
+          window.appState.initialChangesLoaded = true;
+        }
+        window.appState.aenderungenList = items;
+        renderNotifications();
+      }, (err) => console.error('Änderungen Snapshot Fehler:', err));
+
+      // 7. Sicherheits-PIN Listener
+      const secDoc = doc(db, 'artifacts', appId, 'public', 'data', 'einstellungen', 'sicherheit');
+      onSnapshot(secDoc, (snap) => {
+        const savedPin = (snap.exists() && snap.data().pin) ? String(snap.data().pin) : '1914';
+        initPinGate(savedPin);
+      }, (err) => {
+        console.error('PIN Snapshot Fehler:', err);
+        initPinGate('1914');
+      });
+    }
+
+    // Initialize application on window load
+    window.onload = function() {
+      initAuth();
+      renderAll();
+      lucide.createIcons();
+    };
+
+  </script>
+</body>
+</html>
+```
