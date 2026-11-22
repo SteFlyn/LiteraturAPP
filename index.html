@@ -157,7 +157,7 @@
     <!-- OVERVIEW TOTALS & STATS (COMPACT) -->
     <section class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
       
-      <div class="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-2">
+      <div onclick="openStatDetailModal('studien')" title="Klicken für vollständige Aufschlüsselung" class="bg-white px-3 py-2.5 rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md shadow-sm flex items-center justify-between gap-2 cursor-pointer transition select-none">
         <div class="min-w-0">
           <div class="flex items-baseline gap-1.5">
             <span class="text-lg font-bold text-slate-800 leading-none" id="stat-wt-studien">0</span>
@@ -170,7 +170,7 @@
         </div>
       </div>
 
-      <div class="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-2">
+      <div onclick="openStatDetailModal('oeffentlich')" title="Klicken für vollständige Aufschlüsselung" class="bg-white px-3 py-2.5 rounded-xl border border-slate-200 hover:border-emerald-400 hover:shadow-md shadow-sm flex items-center justify-between gap-2 cursor-pointer transition select-none">
         <div class="min-w-0">
           <div class="flex items-baseline gap-1.5">
             <span class="text-lg font-bold text-slate-800 leading-none" id="stat-oeffentlich">0</span>
@@ -183,7 +183,7 @@
         </div>
       </div>
 
-      <div class="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-2">
+      <div onclick="openStatDetailModal('arbeitsheft')" title="Klicken für vollständige Aufschlüsselung" class="bg-white px-3 py-2.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:shadow-md shadow-sm flex items-center justify-between gap-2 cursor-pointer transition select-none">
         <div class="min-w-0">
           <div class="flex items-baseline gap-1.5">
             <span class="text-lg font-bold text-slate-800 leading-none" id="stat-arbeitsheft">0</span>
@@ -196,7 +196,7 @@
         </div>
       </div>
 
-      <div class="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-2">
+      <div onclick="openStatDetailModal('jahres')" title="Klicken für vollständige Aufschlüsselung" class="bg-white px-3 py-2.5 rounded-xl border border-slate-200 hover:border-amber-400 hover:shadow-md shadow-sm flex items-center justify-between gap-2 cursor-pointer transition select-none">
         <div class="min-w-0">
           <div class="flex items-baseline gap-1.5">
             <span class="text-lg font-bold text-amber-600 leading-none" id="stat-jahres-total">0</span>
@@ -726,6 +726,29 @@
     </div>
   </div>
 
+  <!-- MODAL: VOLLSTÄNDIGE ZUSAMMENFASSUNG / KONTEXT -->
+  <div id="modal-stat-detail" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 min-w-0">
+          <i data-lucide="list-checks" class="w-5 h-5 text-blue-600 shrink-0"></i>
+          <h3 class="font-bold text-slate-800 text-base sm:text-lg truncate" id="stat-detail-title">Zusammenfassung</h3>
+        </div>
+        <button onclick="closeModal('modal-stat-detail')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg shrink-0">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="stat-detail-body" class="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 text-sm">
+        <!-- Rendered dynamically -->
+      </div>
+      <div class="p-3.5 bg-slate-50 border-t border-slate-100 text-right">
+        <button type="button" onclick="closeModal('modal-stat-detail')" class="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold hover:bg-slate-700 transition">
+          Schließen
+        </button>
+      </div>
+    </div>
+  </div>
+
 
   <!-- FIREBASE MODULE & APPLICATION LOGIC -->
   <script type="module">
@@ -1234,6 +1257,126 @@
       if (keys.length === 0) return 'Keine Bestellungen';
       return keys.map(k => `${map[k]}x ${k}`).join(', ');
     }
+
+    window.openStatDetailModal = function(category) {
+      const modal = document.getElementById('modal-stat-detail');
+      const titleEl = document.getElementById('stat-detail-title');
+      const bodyEl = document.getElementById('stat-detail-body');
+      if (!modal || !titleEl || !bodyEl) return;
+
+      const buchTitel = (window.appState.lieferplan && window.appState.lieferplan.neuesBuchTitel) || 'Neues Buch / Neuerscheinung';
+      const sortedVerk = [...window.appState.verkuendigerList].sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '', 'de', { sensitivity: 'base' })
+      );
+
+      const summaryMap = {};
+      const entriesByLang = {};
+      let grandTotal = 0;
+
+      if (category === 'studien' || category === 'oeffentlich' || category === 'arbeitsheft') {
+        const typeMap = {
+          studien: { label: 'Studienausgabe', typ: 'Studienausgabe' },
+          oeffentlich: { label: 'Ausgabe Öffentlichkeit', typ: 'Öffentlichkeit' },
+          arbeitsheft: { label: 'Arbeitshefte', typ: 'Arbeitsheft' }
+        };
+        const cfg = typeMap[category];
+        titleEl.innerText = `${cfg.label} – Vollständige Übersicht`;
+
+        sortedVerk.forEach(v => {
+          (v.periodika || []).forEach(p => {
+            if (p.typ !== cfg.typ) return;
+            const qty = parseInt(p.anzahl || 1, 10);
+            const lang = p.sprache || 'Deutsch';
+            const formatSuffix = (p.typ === 'Studienausgabe' && p.format === 'Großdruck') ? ' (Großdruck)' : '';
+            const key = `${lang}${formatSuffix}`;
+            const gInfo = GRUPPEN_DETAILS[String(v.gruppe || 1)] || { kurz: `Gr. ${v.gruppe || 1}`, ort: '' };
+
+            grandTotal += qty;
+            summaryMap[key] = (summaryMap[key] || 0) + qty;
+            if (!entriesByLang[key]) entriesByLang[key] = [];
+            entriesByLang[key].push({
+              name: v.name,
+              anzahl: qty,
+              gruppeLabel: `${gInfo.kurz} · ${gInfo.ort}`
+            });
+          });
+        });
+      } else if (category === 'jahres') {
+        titleEl.innerText = `Tagestext 2027 & ${buchTitel} – Vollständige Übersicht`;
+
+        sortedVerk.forEach(v => {
+          const j = v.jahresabfrage || {};
+          const gInfo = GRUPPEN_DETAILS[String(v.gruppe || 1)] || { kurz: `Gr. ${v.gruppe || 1}`, ort: '' };
+
+          if (j.tagestext && j.tagestext.aktiv) {
+            const qty = parseInt(j.tagestext.anzahl || 1, 10);
+            const spr = j.tagestext.sprache || 'Deutsch';
+            const typ = j.tagestext.typ || 'Standard';
+            const key = `Tagestext 2027 – ${spr}${typ === 'Großdruck' ? ' (Großdruck)' : ''}`;
+            grandTotal += qty;
+            summaryMap[key] = (summaryMap[key] || 0) + qty;
+            if (!entriesByLang[key]) entriesByLang[key] = [];
+            entriesByLang[key].push({
+              name: v.name,
+              anzahl: qty,
+              gruppeLabel: `${gInfo.kurz} · ${gInfo.ort}`
+            });
+          }
+
+          if (j.neuesBuch && j.neuesBuch.aktiv) {
+            const qty = parseInt(j.neuesBuch.anzahl || 1, 10);
+            const spr = j.neuesBuch.sprache || 'Deutsch';
+            const key = `${buchTitel} – ${spr}`;
+            grandTotal += qty;
+            summaryMap[key] = (summaryMap[key] || 0) + qty;
+            if (!entriesByLang[key]) entriesByLang[key] = [];
+            entriesByLang[key].push({
+              name: v.name,
+              anzahl: qty,
+              gruppeLabel: `${gInfo.kurz} · ${gInfo.ort}`
+            });
+          }
+        });
+      }
+
+      if (grandTotal === 0) {
+        bodyEl.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">Aktuell liegen für diese Kategorie keine Bestellungen vor.</div>`;
+      } else {
+        const keys = Object.keys(summaryMap).sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }));
+        bodyEl.innerHTML = `
+          <div class="p-3 bg-slate-100 rounded-xl flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-600">Gesamtsumme</span>
+            <span class="text-base font-extrabold text-slate-900">${grandTotal} Exemplare</span>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5">
+            ${keys.map(k => `<span class="px-2.5 py-1 bg-blue-50 text-blue-800 border border-blue-200 rounded-lg text-xs font-semibold">${summaryMap[k]}x ${escapeHtml(k)}</span>`).join('')}
+          </div>
+
+          <div class="space-y-3 pt-1">
+            ${keys.map(k => `
+              <div class="border border-slate-200 rounded-xl overflow-hidden">
+                <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span>${escapeHtml(k)}</span>
+                  <span>${summaryMap[k]}x</span>
+                </div>
+                <div class="divide-y divide-slate-100">
+                  ${entriesByLang[k].map(e => `
+                    <div class="px-3 py-1.5 flex items-center justify-between text-xs">
+                      <span class="font-medium text-slate-800">${escapeHtml(e.name)} <span class="text-slate-400 font-normal">(${escapeHtml(e.gruppeLabel)})</span></span>
+                      <span class="font-bold text-slate-700">${e.anzahl}x</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+    };
 
     function updateVerkuendigerSuggestions() {
       const datalist = document.getElementById('verkuendiger-suggestions');
@@ -1807,6 +1950,51 @@
         return;
       }
 
+      const renderVerkuendigerCard = (v, showGroupBadge = false) => {
+        const gInfo = GRUPPEN_DETAILS[String(v.gruppe || 1)] || { kurz: `Gr. ${v.gruppe || 1}`, ort: '', leiter: '' };
+        return `
+          <div class="p-3 bg-slate-50/70 border border-slate-200 rounded-xl hover:border-blue-300 transition flex flex-col justify-between gap-2">
+            <div>
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <span class="font-bold text-slate-800 text-sm">${escapeHtml(v.name)}</span>
+                  ${showGroupBadge ? `<span class="ml-1.5 inline-block px-1.5 py-0.2 bg-slate-200/80 text-slate-600 text-[10px] font-semibold rounded">${escapeHtml(gInfo.kurz)} · ${escapeHtml(gInfo.ort)}</span>` : ''}
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  <button onclick="editVerkuendiger('${v.id}')" title="Bearbeiten" class="p-1 text-slate-400 hover:text-blue-600 rounded">
+                    <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button onclick="deleteVerkuendiger('${v.id}')" title="Löschen" class="p-1 text-slate-400 hover:text-red-600 rounded">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </div>
+              ${v.anmerkung ? `<p class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(v.anmerkung)}</p>` : ''}
+            </div>
+            <div class="flex flex-wrap gap-1.5 pt-1">
+              ${(v.periodika && v.periodika.length > 0) ? v.periodika.map(p => {
+                let badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
+                if (p.typ === 'Öffentlichkeit') badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                if (p.typ === 'Arbeitsheft') badgeColor = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                const formatLabel = (p.typ === 'Studienausgabe' && p.format === 'Großdruck') ? ' · Großdruck' : '';
+                return `<span class="text-[11px] px-2 py-0.5 rounded-md border font-medium ${badgeColor}">${p.anzahl}x ${escapeHtml(p.typ)}${formatLabel} (${escapeHtml(p.sprache)})</span>`;
+              }).join('') : '<span class="text-xs text-slate-400 italic">Keine Periodika</span>'}
+            </div>
+          </div>
+        `;
+      };
+
+      if (selectedGroup === 'alle') {
+        const sortedAll = [...filtered].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de', { sensitivity: 'base' }));
+        listContainer.innerHTML = `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            ${sortedAll.map(v => renderVerkuendigerCard(v, true)).join('')}
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
       const grouped = {};
       for (let i = 1; i <= 6; i++) grouped[i] = [];
       filtered.forEach(v => {
@@ -1834,33 +2022,7 @@
               <span class="text-xs text-slate-400">(${grouped[g].length} Verkündiger)</span>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              ${grouped[g].map(v => `
-                <div class="p-3 bg-slate-50/70 border border-slate-200 rounded-xl hover:border-blue-300 transition flex flex-col justify-between gap-2">
-                  <div>
-                    <div class="flex items-start justify-between gap-2">
-                      <span class="font-bold text-slate-800 text-sm">${escapeHtml(v.name)}</span>
-                      <div class="flex items-center gap-1 shrink-0">
-                        <button onclick="editVerkuendiger('${v.id}')" title="Bearbeiten" class="p-1 text-slate-400 hover:text-blue-600 rounded">
-                          <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
-                        </button>
-                        <button onclick="deleteVerkuendiger('${v.id}')" title="Löschen" class="p-1 text-slate-400 hover:text-red-600 rounded">
-                          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                        </button>
-                      </div>
-                    </div>
-                    ${v.anmerkung ? `<p class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(v.anmerkung)}</p>` : ''}
-                  </div>
-                  <div class="flex flex-wrap gap-1.5 pt-1">
-                    ${(v.periodika && v.periodika.length > 0) ? v.periodika.map(p => {
-                      let badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
-                      if (p.typ === 'Öffentlichkeit') badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                      if (p.typ === 'Arbeitsheft') badgeColor = 'bg-indigo-50 text-indigo-700 border-indigo-200';
-                      const formatLabel = (p.typ === 'Studienausgabe' && p.format === 'Großdruck') ? ' · Großdruck' : '';
-                      return `<span class="text-[11px] px-2 py-0.5 rounded-md border font-medium ${badgeColor}">${p.anzahl}x ${escapeHtml(p.typ)}${formatLabel} (${escapeHtml(p.sprache)})</span>`;
-                    }).join('') : '<span class="text-xs text-slate-400 italic">Keine Periodika</span>'}
-                  </div>
-                </div>
-              `).join('')}
+              ${grouped[g].map(v => renderVerkuendigerCard(v, false)).join('')}
             </div>
           </div>
         `;
