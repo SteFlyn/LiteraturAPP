@@ -1325,9 +1325,16 @@
           (v.periodika || []).forEach(p => addPeriodikaRow(p));
         }
       } else {
-        const activeGrp = window.appState.activeGroupFilter;
-        if (activeGrp && activeGrp !== 'alle' && ['1', '2', '3', '4', '5', '6'].includes(String(activeGrp))) {
-          document.getElementById('verkuendiger-gruppe').value = String(activeGrp);
+        let targetGrp = window.appState.activeGroupFilter;
+        if (!targetGrp || targetGrp === 'alle') {
+          targetGrp = window.appState.activeJahresFilter;
+        }
+        if (targetGrp && targetGrp !== 'alle' && ['1', '2', '3', '4', '5', '6'].includes(String(targetGrp))) {
+          const grpSelect = document.getElementById('verkuendiger-gruppe');
+          grpSelect.value = String(targetGrp);
+          Array.from(grpSelect.options).forEach(opt => {
+            opt.selected = (opt.value === String(targetGrp));
+          });
         }
         addPeriodikaRow({ typ: 'Arbeitsheft', sprache: 'Deutsch', anzahl: 1 });
         addPeriodikaRow({ typ: 'Studienausgabe', sprache: 'Deutsch', anzahl: 1 });
